@@ -1,0 +1,29 @@
+{
+  "logLevel": "debug",
+  "defaultRetries": 3,
+  "defaultCacheTtl": 300,
+  "lifecycle": {
+    "beforeRequest": ["auth", "cache", "log"],
+    "request": ["fetch"],
+    "afterRequest": ["log", "webhook"]
+  },
+  "db": {
+    "lifecycle": {
+      "beforeExecute": ["validate"],
+      "execute": ["query"],
+      "afterExecute": ["log"]
+    }
+  },
+  "webhooks": {
+    "defaultTimeoutMs": 5000,
+    "retryCount": 3
+  },
+  "security": {
+    "jwtSecret": "CHANGE_THIS_IN_PRODUCTION",
+    "jwtExpiresIn": "1d",
+    "apiKeys": {
+      "enabled": true,
+      "headerName": "X-API-Key"
+    }
+  }
+}

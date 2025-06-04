@@ -1,0 +1,521 @@
+{
+	"info": {
+		"_postman_id": "115a7b80-13bf-4b94-b50d-850523d685fd",
+		"name": "Document Processing API",
+		"description": "Collection for the Document Processing System API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "9351366"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticate user and get token"
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Token",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/verify",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"verify"
+							]
+						},
+						"description": "Verify that the authentication token is valid"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints"
+		},
+		{
+			"name": "Commands",
+			"item": [
+				{
+					"name": "List Commands",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/commands",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"commands"
+							]
+						},
+						"description": "Get a list of all available commands"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Status",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"status"
+							]
+						},
+						"description": "Get the current session status"
+					},
+					"response": []
+				}
+			],
+			"description": "Command-related endpoints"
+		},
+		{
+			"name": "Processing",
+			"item": [
+				{
+					"name": "Import File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "file_path",
+									"value": "/path/to/data.csv",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/import",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"import"
+							]
+						},
+						"description": "Import a file by path on the server"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload File",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/local/data.csv"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/import-upload",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"import-upload"
+							]
+						},
+						"description": "Upload and import a file"
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Data",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/validate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"validate"
+							]
+						},
+						"description": "Validate imported data"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Mapping",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/map",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"map"
+							]
+						},
+						"description": "Generate field mapping"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate HTML",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/html",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"html"
+							]
+						},
+						"description": "Generate HTML files"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate PDF",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/run/pdf",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"run",
+								"pdf"
+							]
+						},
+						"description": "Generate PDF files"
+					},
+					"response": []
+				}
+			],
+			"description": "Document processing endpoints"
+		},
+		{
+			"name": "Logs",
+			"item": [
+				{
+					"name": "Get Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/logs",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"logs"
+							]
+						},
+						"description": "Get a list of all log directories"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/logs/{{logHash}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"logs",
+								"{{logHash}}"
+							]
+						},
+						"description": "Get information about a specific log directory"
+					},
+					"response": []
+				},
+				{
+					"name": "Rename Log",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"March Payment Advices\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/logs/{{logHash}}/rename",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"logs",
+								"{{logHash}}",
+								"rename"
+							]
+						},
+						"description": "Rename a log directory"
+					},
+					"response": []
+				}
+			],
+			"description": "Log management endpoints"
+		},
+		{
+			"name": "Users",
+			"item": [
+				{
+					"name": "Get Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Get a list of all users"
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{apiKey}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"newuser\",\n    \"password\": \"password123\",\n    \"role\": \"user\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/users",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users"
+							]
+						},
+						"description": "Create a new user"
+					},
+					"response": []
+				}
+			],
+			"description": "User management endpoints"
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{apiKey}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "X-API-Key",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "apiKey",
+			"value": "4334.4334",
+			"type": "string"
+		},
+		{
+			"key": "logHash",
+			"value": "ce65e00a455ca83cf53c6a687daa45ff52c0cd6732deae7c682beb3e5b60bbb3",
+			"type": "string"
+		}
+	]
+}

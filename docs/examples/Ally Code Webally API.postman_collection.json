@@ -1,0 +1,437 @@
+{
+	"info": {
+		"_postman_id": "a6f7fceb-e700-4a89-bd2d-b763b0f35060",
+		"name": "Ally Code Webally API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "9351366"
+	},
+	"item": [
+		{
+			"name": "Get Project Info",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/info?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"info"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Stack",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/stack?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"stack"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Specification",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/spec?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"spec"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Tasks",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/tasks?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"tasks"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Config Files",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/config?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"config"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Files by Category",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List All Modules",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code/modules?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code",
+						"modules"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Specific Module Files",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code/module/{{identifier}}?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code",
+						"module",
+						"{{identifier}}"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				},
+				"description": "Replace {{identifier}} with the module id or slug."
+			},
+			"response": []
+		},
+		{
+			"name": "List All Components",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code/components?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code",
+						"components"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Specific Component Code",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code/component/{{identifier}}?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code",
+						"component",
+						"{{identifier}}"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				},
+				"description": "Replace {{identifier}} with the component identifier."
+			},
+			"response": []
+		},
+		{
+			"name": "List Documentation",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/docs?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"docs"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Specific Documentation",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/docs/{{identifier}}?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"docs",
+						"{{identifier}}"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				},
+				"description": "Replace {{identifier}} with the documentation identifier."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Project Styles",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{api_key}}"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/{{project_name}}/code/styles?in=json",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"{{project_name}}",
+						"code",
+						"styles"
+					],
+					"query": [
+						{
+							"key": "in",
+							"value": "json"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "https://ally.code.webally.co.za"
+		},
+		{
+			"key": "api_key",
+			"value": "6b49e83f-c2a7-4d1d-9e5d-7f12c3e8567a"
+		},
+		{
+			"key": "project_name",
+			"value": "peche"
+		}
+	]
+}
