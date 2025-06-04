@@ -8,11 +8,12 @@ import { SQLiteLogDriver } from './drivers/sqlite-driver.js';
 import { FileLogDriver } from './drivers/file-driver.js';
 import { config } from '../config.js';
 import { env } from '../env.js';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { mkdir, writeFile } from 'fs/promises';
 import { createReadStream, createWriteStream } from 'fs';
 import { createGzip } from 'zlib';
 import { pipeline } from 'stream/promises';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export class LogManager {
   private static instance: LogManager;
@@ -187,17 +188,35 @@ export class LogManager {
    * This is a placeholder implementation - you'll need to add the actual S3 upload code
    */
   private async archiveToS3(
-    logsToArchive: Map<string, string[]>, 
-    zipOption: string
+    logsToArchive: Map<string, string[]>,
+    _zipOption: string
   ): Promise<void> {
-    console.log(`Would archive ${countLogs(logsToArchive)} logs to S3 bucket: ${env.S3_BUCKET_NAME}`);
-    console.log('ZIP option:', zipOption);
-    console.log('This is a placeholder. Implement S3 upload logic as needed.');
-    
-    // In a real implementation, you would:
-    // 1. Prepare the logs (possibly compress)
-    // 2. Use AWS SDK to upload to S3
-    // 3. Delete the local copies if appropriate
+    if (!env.S3_BUCKET_NAME || !env.S3_REGION) {
+      console.error('S3_BUCKET_NAME or S3_REGION not configured. Skipping S3 archival.');
+      return;
+    }
+
+    const s3 = new S3Client({
+      region: env.S3_REGION,
+      credentials: env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
+        ? { accessKeyId: env.AWS_ACCESS_KEY_ID, secretAccessKey: env.AWS_SECRET_ACCESS_KEY }
+        : undefined
+    });
+
+    const prefix = env.S3_STORAGE_PREFIX || '';
+
+    for (const [, files] of logsToArchive) {
+      for (const filePath of files) {
+        try {
+          const key = `${prefix}${basename(filePath)}`;
+          const body = createReadStream(filePath);
+          await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: key, Body: body }));
+          console.log(`Uploaded ${filePath} to s3://${env.S3_BUCKET_NAME}/${key}`);
+        } catch (error) {
+          console.error('Failed to upload log to S3:', filePath, error);
+        }
+      }
+    }
   }
 
   /**

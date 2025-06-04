@@ -127,14 +127,18 @@ export class SQLiteLogDriver extends BaseLogDriver {
       await this.initialize();
     }
     
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-    const cutoffDateStr = cutoffDate.toISOString();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - olderThanDays);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+    const startStr = startDate.toISOString();
+    const endStr = endDate.toISOString();
     
     // Use a query to find logs older than the cutoff date
     const oldLogs = await withReadQuery(null, 'logs', async () => {
       return await db.select().from(schema.logs)
-        .where(lt(schema.logs.timestamp, cutoffDateStr));
+        .where(sql`${schema.logs.timestamp} >= ${startStr} AND ${schema.logs.timestamp} < ${endStr}`);
     });
     
     // Type assertion for oldLogs and add type for log parameter
