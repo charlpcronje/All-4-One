@@ -127,23 +127,26 @@ export class FileLogDriver extends BaseLogDriver {
     if (!this.initialized) {
       await this.initialize();
     }
-    
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - olderThanDays);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
     
     try {
       // Get all log files in the directory
       const files = await readdir(this.basePath);
       const logFiles = files.filter(file => file.endsWith('.log'));
       
-      // Find files older than cutoff date
+      // Find files from the target day
       const oldFiles: string[] = [];
       
       for (const file of logFiles) {
         const filePath = join(this.basePath, file);
         const fileStat = await stat(filePath);
         
-        if (fileStat.mtime < cutoffDate) {
+        if (fileStat.mtime >= startDate && fileStat.mtime < endDate) {
           oldFiles.push(filePath);
         }
       }

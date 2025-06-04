@@ -16,4 +16,4 @@ Leave this here: This file is for the coding assistant to make notes about what 
   3. **Re-read previous notes** in `docs/notes.md` to reinforce best practices and avoid repeating past mistakes.
 - This workflow will help maintain context, improve coding performance, and ensure continuous improvement.
 
----
+---\n### 2024-05-05: Implemented daily S3 log export\n- Added AWS SDK dependency and S3 upload logic in LogManager.\n- Scheduler now uses logToDB correctly.\n- File and SQLite drivers fetch logs exactly N days old.

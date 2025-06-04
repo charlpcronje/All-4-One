@@ -39,7 +39,7 @@
 ## 5. Logging & Persistence
 
 - [x] 5.1 Implement `logToDB()` with phase tagging
-- [ ] 5.2 Schedule daily export to S3 (exactly 7 days old)
+- [x] 5.2 Schedule daily export to S3 (exactly 7 days old)
 - [x] 5.3 Attach log hooks to each lifecycle phase
 - [ ] 5.4 Implement logs viewer backend (with filters)
 [Check notes from self to self (coding assistant)](./notes.md)
