@@ -54,12 +54,12 @@
   - [x] Store JSON content in database for redundancy
   - [x] Track config file hashes for integrity checking
 - [x] 6.4 Register and route imported endpoints
-- [ ] 6.5 Implement API versioning system
-  - [ ] Create version folder structure (`api-name/v1`, `api-name/v2`, etc.)
-  - [ ] Add version switching in api.json (`currentVersion` field)
-  - [ ] Support accessing multiple versions simultaneously
+- [x] 6.5 Implement API versioning system
+  - [x] Create version folder structure (`api-name/v1`, `api-name/v2`, etc.)
+  - [x] Add version switching in api.json (`currentVersion` field)
+  - [x] Support accessing multiple versions simultaneously
 - [ ] 6.6 Implement local Git-based configuration tracking
-  - [ ] Set up local Git repository for config files
+  - [x] Set up local Git repository for config files
   - [ ] Create auto-commit system for config changes
   - [ ] Build simple history viewer in dashboard
 - [ ] 6.7 Create JSON configuration editor in dashboard
@@ -229,3 +229,37 @@
 - [ ] 12.6 Add dashboard page: Domains & Namespaces overview
 - [ ] 12.7 Allow domain-only client registrations (no username/password)
 - [ ] 12.8 Securely reject cross-namespace traffic from domain routes[Check notes from self to self (coding assistant)](./notes.md)
+
+
+## 13. Core FX Integration & VFS Architecture
+
+- [ ] 13.1 Configure Isomorphic Imports for `core/fx.js`
+  - [ ] 13.1.1 Adjust `backend/tsconfig.json` and `frontend/tsconfig.json` to correctly resolve the symlinked `core/fx.js` module.
+  - [ ] 13.1.2 Polyfill or mock Node.js/Browser-specific APIs (`crypto`, `window`) to prevent runtime errors when `fx.js` is imported into the "wrong" environment.
+- [ ] 13.2 Implement `FxVfsService` and In-Memory File System
+  - [ ] 13.2.1 Install `memfs` library in the backend workspace.
+  - [ ] 13.2.2 Create `backend/src/services/fx-vfs.service.ts` with the `materialize` and `hydrate` methods.
+  - [ ] 13.2.3 Ensure the service uses the VFS structure we defined (`__meta.json`, `__value`).
+- [ ] 13.3 Implement the Process Step Registry
+  - [ ] 13.3.1 Create `backend/src/services/process-registry.service.ts`.
+  - [ ] 13.3.2 Define the `ProcessStepDefinition` interface, including `configSchema` (Zod).
+  - [ ] 13.3.3 Implement `register` and `listAvailableSteps` methods. The list method should convert Zod schemas to JSON Schemas for the frontend.
+  - [ ] 13.3.4 Create a backend endpoint `GET /api/process-steps` to expose available steps.
+- [ ] 13.4 Implement the `ProcessRunnerService`
+  - [ ] 13.4.1 Create `backend/src/services/process-runner.service.ts`.
+  - [ ] 13.4.2 Implement the main `run(requestFx)` method that traverses the process definition.
+  - [ ] 13.4.3 The runner should create a new `run` node under `requestFx.runs` for each execution.
+  - [ ] 13.4.4 The runner should look up executors from the `ProcessRegistry` and instantiate/call them, logging results to the current `run` node.
+- [ ] 13.5 Refactor API Routing to use the new architecture
+  - [ ] 13.5.1 Update the dynamic route handler in `backend/src/services/route-registration.service.ts`.
+  - [ ] 13.5.2 The handler should now fetch the Process Definition JSON from the DB.
+  - [ ] 13.5.3 It should use `FxVfsService.materialize` to create the runtime VFS context for the request.
+  - [ ] 13.5.4 It should invoke the `ProcessRunnerService` to execute the request.
+  - [ ] 13.5.5 After execution, it should serialize the final `requestFx` state from the VFS and save it as a log.
+- [ ] 13.6 Enhance Frontend Editors
+  - [ ] 13.6.1 **JSON Editor:** Integrate `zod-to-json-schema`. Configure the Monaco editor with the schema from the `ProcessRegistry` to enable autocomplete and validation.
+  - [ ] 13.6.2 **Visual Editor (React Flow):**
+    - [ ] Install `react-flow-renderer` or a similar library.
+    - [ ] Fetch available steps from `GET /api/process-steps` to populate the toolbox.
+    - [ ] Implement the drag-and-drop canvas that modifies the `processDefinition` JSON in the component's state.
+    - [ ] Implement the property panel for configuring selected nodes, using the `configJsonSchema` for dynamic form generation.

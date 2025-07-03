@@ -68,7 +68,7 @@ export default function DashboardPage() {
     },
   ];
 
-  const recentActivities: RecentActivity[] = [
+  const recentActivities: z.infer<typeof RecentActivitySchema>[] = [
     {
       id: "act1",
       type: "CONFIG_UPDATE",

@@ -27,7 +27,7 @@ function LoadingFallback() {
 // Protected Route Helper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // This would be replaced with actual auth check logic
-  const isAuthenticated = true; // For development, assuming logged in
+  const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
   
   // In a real app, redirect to login if not authenticated
   if (!isAuthenticated) {

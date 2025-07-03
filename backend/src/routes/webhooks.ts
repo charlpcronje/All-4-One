@@ -1,12 +1,12 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { db } from '../db/index.ts';
-import * as schema from '../db/schema.ts';
-import { eq } from 'drizzle-orm';
-import { createLogger } from '../logging/index.ts';
-import { withReadQuery, withTransaction, withWriteQuery } from '../db/transactions.ts';
-import { registerWebhook, WebhookEvent } from '../webhooks/index.ts';
+import { db } from '../db/index.js';
+import * as schema from '../db/schema.js';
+import { eq, desc, sql } from 'drizzle-orm';
+import { createLogger } from '../logging/index.js';
+import { withReadQuery, withTransaction, withWriteQuery } from '../db/transactions.js';
+import { registerWebhook, WebhookEvent, deliverWebhook } from '../webhooks/index.js';
 
 // Logger for webhook routes
 const logger = createLogger('routes:webhooks');
@@ -42,7 +42,7 @@ const updateWebhookSchema = z.object({
 app.get('/', async (c) => {
   try {
     const webhooks = await withReadQuery(c, 'list webhooks', async () => {
-      return await db.select().from(schema.webhooks).orderBy(schema.webhooks.createdAt);
+      return await db.select().from(schema.webhooks).orderBy(desc(schema.webhooks.createdAt));
     });
 
     return c.json({
@@ -66,23 +66,17 @@ app.post('/', zValidator('json', createWebhookSchema), async (c) => {
   try {
     const body = c.req.valid('json');
     
-    // Register webhook using the webhook service
-    const webhook = await registerWebhook(
-      body.url, 
-      body.event as WebhookEvent, 
-      body.secret
-    );
-    
-    // If description provided, update it
-    if (body.description) {
-      await withWriteQuery(c, 'update webhook description', async () => {
-        await db.update(schema.webhooks)
-          .set({ description: body.description })
-          .where(eq(schema.webhooks.id, webhook.id));
-      });
-      
-      webhook.description = body.description;
-    }
+    const webhook = await withTransaction(c, 'create webhook', async (tx) => {
+      const [newWebhook] = await tx.insert(schema.webhooks)
+        .values({
+          url: body.url,
+          event: body.event,
+          secret: body.secret,
+          description: body.description,
+        })
+        .returning();
+      return newWebhook;
+    });
     
     logger.info('Created new webhook subscription', { 
       id: webhook.id, 
@@ -160,33 +154,20 @@ app.patch('/:id', zValidator('json', updateWebhookSchema), async (c) => {
       }, 400);
     }
     
-    // Ensure webhook exists
-    const exists = await withReadQuery(c, 'check webhook exists', async () => {
-      return await db.query.webhooks.findFirst({
-        where: eq(schema.webhooks.id, id)
-      });
+    const [updatedWebhook] = await withWriteQuery(c, 'webhooks', 'update', async () => {
+        const result = await db.update(schema.webhooks)
+          .set({
+            ...body,
+            updatedAt: new Date().toISOString()
+          })
+          .where(eq(schema.webhooks.id, id))
+          .returning();
+        return result;
     });
-    
-    if (!exists) {
-      return c.json({
-        success: false,
-        error: 'Webhook not found'
-      }, 404);
+
+    if (!updatedWebhook) {
+      return c.json({ success: false, error: 'Webhook not found' }, 404);
     }
-    
-    // Update webhook
-    const [updatedWebhook] = await withWriteQuery(c, 'update webhook', async () => {
-      return await db.update(schema.webhooks)
-        .set({
-          ...(body.url && { url: body.url }),
-          ...(body.active !== undefined && { active: body.active }),
-          ...(body.secret !== undefined && { secret: body.secret }),
-          ...(body.description !== undefined && { description: body.description }),
-          updatedAt: new Date()
-        })
-        .where(eq(schema.webhooks.id, id))
-        .returning();
-    });
     
     logger.info('Updated webhook', { id });
     
@@ -218,13 +199,10 @@ app.delete('/:id', async (c) => {
       }, 400);
     }
     
-    // Delete webhook with transaction to handle related logs
     await withTransaction(c, 'delete webhook', async (tx) => {
-      // First delete related logs
       await tx.delete(schema.webhookLogs)
         .where(eq(schema.webhookLogs.webhookId, id));
       
-      // Then delete the webhook
       const deleted = await tx.delete(schema.webhooks)
         .where(eq(schema.webhooks.id, id))
         .returning();
@@ -268,7 +246,6 @@ app.get('/:id/logs', async (c) => {
       }, 400);
     }
     
-    // Check if webhook exists
     const webhook = await withReadQuery(c, 'check webhook exists', async () => {
       return await db.query.webhooks.findFirst({
         where: eq(schema.webhooks.id, id)
@@ -276,13 +253,9 @@ app.get('/:id/logs', async (c) => {
     });
     
     if (!webhook) {
-      return c.json({
-        success: false,
-        error: 'Webhook not found'
-      }, 404);
+      return c.json({ success: false, error: 'Webhook not found' }, 404);
     }
     
-    // Get logs with pagination
     const limit = Number(c.req.query('limit') || '20');
     const offset = Number(c.req.query('offset') || '0');
     
@@ -290,15 +263,14 @@ app.get('/:id/logs', async (c) => {
       return await db.select()
         .from(schema.webhookLogs)
         .where(eq(schema.webhookLogs.webhookId, id))
-        .orderBy(schema.webhookLogs.timestamp, 'desc')
+        .orderBy(desc(schema.webhookLogs.timestamp))
         .limit(limit)
         .offset(offset);
     });
     
-    // Get total count
     const [{ count }] = await withReadQuery(c, 'count webhook logs', async () => {
       return await db.select({
-        count: db.fn.count()
+        count: sql<number>`count(*)`
       })
       .from(schema.webhookLogs)
       .where(eq(schema.webhookLogs.webhookId, id));
@@ -335,7 +307,6 @@ app.post('/:id/test', async (c) => {
       }, 400);
     }
     
-    // Get webhook details
     const webhook = await withReadQuery(c, 'get webhook for test', async () => {
       return await db.query.webhooks.findFirst({
         where: eq(schema.webhooks.id, id)
@@ -343,25 +314,15 @@ app.post('/:id/test', async (c) => {
     });
     
     if (!webhook) {
-      return c.json({
-        success: false,
-        error: 'Webhook not found'
-      }, 404);
+      return c.json({ success: false, error: 'Webhook not found' }, 404);
     }
     
     if (!webhook.active) {
-      return c.json({
-        success: false,
-        error: 'Cannot test inactive webhook'
-      }, 400);
+      return c.json({ success: false, error: 'Cannot test inactive webhook' }, 400);
     }
     
-    // Import webhook handler directly to avoid circular dependency
-    const { deliverWebhook } = await import('../webhooks/index.ts');
-    
-    // Create test payload
-    const payload = {
-      event: webhook.event as WebhookEvent,
+    const payload: WebhookPayload = {
+      event: webhook.event,
       timestamp: new Date().toISOString(),
       source: 'webhook.test',
       data: {
@@ -371,20 +332,18 @@ app.post('/:id/test', async (c) => {
       }
     };
     
-    // Deliver test webhook
     const result = await deliverWebhook(webhook.url, payload, webhook.secret);
     
-    // Record test attempt
     await db.insert(schema.webhookLogs).values({
       webhookId: webhook.id,
       event: webhook.event,
       success: result.success,
-      statusCode: result.statusCode || null,
+      statusCode: result.statusCode ?? null,
       responseData: result.response 
         ? JSON.stringify(result.response).substring(0, 1000) 
         : null,
-      errorMessage: result.error || null,
-      timestamp: new Date()
+      errorMessage: result.error ?? null,
+      timestamp: new Date().toISOString(),
     });
     
     logger.info('Sent test webhook', { 

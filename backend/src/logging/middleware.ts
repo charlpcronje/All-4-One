@@ -4,6 +4,7 @@
 import { Context, MiddlewareHandler } from 'hono';
 import { Logger, createLogger } from './core.js';
 import { LogPhase } from './types.js';
+import { z } from 'zod';
 
 // Logger for the middleware
 const middlewareLogger = createLogger('middleware');
@@ -11,13 +12,18 @@ const middlewareLogger = createLogger('middleware');
 /**
  * Configuration options for the logger middleware
  */
-export interface LoggerMiddlewareOptions {
-  logRequest?: boolean;
-  logResponse?: boolean;
-  logHeaders?: boolean;
-  logBody?: boolean;
-  excludePaths?: string[];
-}
+export const LoggerMiddlewareOptionsSchema = z.object({
+  logRequest: z.boolean().optional(),
+  logResponse: z.boolean().optional(),
+  logHeaders: z.boolean().optional(),
+  logBody: z.boolean().optional(),
+  excludePaths: z.array(z.string()).optional(),
+});
+
+/**
+ * Configuration options for the logger middleware
+ */
+type LoggerMiddlewareOptions = z.infer<typeof LoggerMiddlewareOptionsSchema>;
 
 /**
  * Create a Hono middleware for automatic request/response logging

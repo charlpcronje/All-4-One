@@ -87,7 +87,7 @@ async function seed() {
         slug: 'example',
         baseUrl: 'https://api.example.com',
         type: 'http',
-        config: configStr,
+        config_json: configStr,
         configHash: calculateHash(configStr),
         createdAt: new Date(),
         updatedAt: new Date()
@@ -136,7 +136,7 @@ async function seed() {
         method: 'GET',
         description: 'Sample endpoint',
         version: 'v1',
-        config: endpointConfigStr,
+        config_json: endpointConfigStr,
         configHash: calculateHash(endpointConfigStr),
         createdAt: new Date(),
         updatedAt: new Date()

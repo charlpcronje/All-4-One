@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import * as schema from '../db/schema.js';
 import { ConfigFileService } from './config-fs.service.js';
 import { createLogger } from '../logging/index.js';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { apiRequest } from '../api/client.js';
 // TODO: Implement lifecycle phase execution
 // For now we'll create a simple placeholder function 
@@ -24,7 +24,6 @@ const logger = createLogger('services:route-registration');
  * Service for registering and managing dynamic API routes
  */
 export class RouteRegistrationService {
-  private registeredApis: Map<number, Hono> = new Map();
   private configFileService: ConfigFileService;
   
   constructor(configFileService: ConfigFileService) {
@@ -54,40 +53,50 @@ export class RouteRegistrationService {
   /**
    * Register routes for a specific API
    */
-  async registerApiRoutes(api: any, parentRouter: Hono): Promise<void> {
+  async registerApiRoutes(api: typeof schema.apis.$inferSelect, parentRouter: Hono): Promise<void> {
     try {
-      // Create a new router for this API
-      const apiRouter = new Hono();
-      
-      // Get all active endpoints for this API
-      const apiEndpoints = await db.select().from(schema.endpoints)
-        .where(eq(schema.endpoints.apiId, api.id));
-      
-      logger.info(`Registering ${apiEndpoints.length} endpoints for API ${api.name} (${api.slug})`);
-      
-      // Register each endpoint
-      for (const endpoint of apiEndpoints) {
-        this.registerEndpoint(api, endpoint, apiRouter);
+      let availableVersions = ['v1']; // Default if not specified
+      try {
+        const apiConfigFile = await this.configFileService.readApiConfig(api.slug);
+        if (apiConfigFile.config && apiConfigFile.config.availableVersions && apiConfigFile.config.availableVersions.length > 0) {
+          availableVersions = apiConfigFile.config.availableVersions;
+        }
+        logger.info(`API ${api.name} (${api.slug}) - available versions from api.json: ${availableVersions.join(', ')}`);
+      } catch (err) {
+        logger.warn(`Could not read api.json for ${api.slug} or availableVersions not set, defaulting to ['v1']. Error: ${(err as Error).message}`);
       }
-      
-      // Mount the API router under its slug namespace
-      parentRouter.route(`/${api.slug}`, apiRouter);
-      
-      // Store the router for future reference
-      this.registeredApis.set(api.id, apiRouter);
-      
-      logger.info(`Successfully registered API ${api.name} at /${api.slug}`);
-      
+
+      for (const versionStr of availableVersions) {
+        const versionedApiRouter = new Hono();
+        const apiEndpoints = await db.select().from(schema.endpoints)
+          .where(and(eq(schema.endpoints.apiId, api.id), eq(schema.endpoints.version, versionStr)));
+
+        logger.info(`Registering ${apiEndpoints.length} endpoints for API ${api.name} (${api.slug}), version ${versionStr}`);
+
+        if (apiEndpoints.length === 0) {
+          logger.info(`No endpoints found for API ${api.name} (${api.slug}), version ${versionStr}. Skipping registration for this version.`);
+          // Optionally, still mount the router if base path for version should exist
+          // parentRouter.route(`/${api.slug}/${versionStr}`, versionedApiRouter);
+          continue;
+        }
+
+        for (const endpoint of apiEndpoints) {
+          this.registerEndpoint(api, endpoint, versionedApiRouter, versionStr);
+        }
+
+        parentRouter.route(`/${api.slug}/${versionStr}`, versionedApiRouter);
+        logger.info(`Successfully registered API ${api.name} (${api.slug}) version ${versionStr} at /${api.slug}/${versionStr}`);
+      }
     } catch (error) {
-      logger.error(`Failed to register routes for API ${api.name}`, { error });
-      throw new Error(`Failed to register routes for API ${api.name}: ${(error as Error).message}`);
+      logger.error(`Failed to register routes for API ${api.name} (${api.slug})`, { error });
+      throw new Error(`Failed to register routes for API ${api.name} (${api.slug}): ${(error as Error).message}`);
     }
   }
   
   /**
    * Register a specific endpoint within an API router
    */
-  private registerEndpoint(api: any, endpoint: any, apiRouter: Hono): void {
+  private registerEndpoint(api: typeof schema.apis.$inferSelect, endpoint: typeof schema.endpoints.$inferSelect, apiRouter: Hono, apiVersion: string): void {
     try {
       // Get the HTTP method and normalized path
       const method = endpoint.method.toLowerCase();
@@ -99,8 +108,8 @@ export class RouteRegistrationService {
       // Define the handler function for this endpoint
       const handler = async (c: Context) => {
         try {
-          // Load endpoint config from filesystem for most up-to-date version
-          const endpointConfig = await this.loadEndpointConfig(api.slug, endpoint.version, endpoint);
+          // Load endpoint config from filesystem using the specific API version
+          const endpointConfig = await this.loadEndpointConfig(api.slug, apiVersion, endpoint);
           
           // Extract request details
           const params = c.req.param() || {};
@@ -144,7 +153,7 @@ export class RouteRegistrationService {
           }
           
           // Otherwise, execute the forwarded request
-          const apiConfig = JSON.parse(api.config);
+          const apiConfig = JSON.parse(api.config_json);
           const targetUrl = `${apiConfig.basePath}${path}`;
           
           // Make the actual API request using the api client
@@ -153,9 +162,9 @@ export class RouteRegistrationService {
             endpoint.path,
             {
               method: endpoint.method.toUpperCase() as any, // Convert to uppercase for API client
-              headers: { ...headers, ...(endpointConfig.headers || {}) },
+              headers: { ...headers, ...(endpointConfig?.headers || {}) },
               body,
-              timeout: endpoint.timeout || api.timeout || 30000
+              timeout: endpointConfig?.errorHandling?.timeoutMs || 30000 // Use endpoint config timeout or default
             }
           );
           
@@ -219,7 +228,7 @@ export class RouteRegistrationService {
     } catch (error) {
       logger.error(`Failed to load endpoint config for ${endpoint.method} ${endpoint.path}`, { error });
       // Fall back to the config stored in the database
-      return JSON.parse(endpoint.config);
+      return JSON.parse(endpoint.config_json);
     }
   }
   
@@ -227,8 +236,10 @@ export class RouteRegistrationService {
    * Re-register all routes (useful after imports or configuration changes)
    */
   async refreshRoutes(parentRouter: Hono): Promise<void> {
-    // Clear existing registrations
-    this.registeredApis.clear();
+    // Note: Hono doesn't have a built-in way to clear all routes from a router instance easily.
+    // Effective refresh might involve creating a new parentRouter instance or managing routes more granularly if needed.
+    // For now, this will re-add routes. If parentRouter is the main app, duplicates might occur if not handled by Hono's design.
+    // Assuming this is called in a context where parentRouter is fresh or route duplication is managed.
     
     // Register all routes again
     await this.registerAllRoutes(parentRouter);

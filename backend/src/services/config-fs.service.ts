@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { getConfigBasePath } from '../config.js';
+import { getConfigBasePath, getApiConfigPath } from '../config.js'; // Added getApiConfigPath
 import { ensureDirectoryExists } from '../utils/fs-utils.js';
 import crypto from 'node:crypto';
 
@@ -8,6 +8,11 @@ import crypto from 'node:crypto';
  * Service for handling configuration file operations
  */
 export class ConfigFileService {
+  constructor() {
+    // Ensure the base API config directory exists upon instantiation
+    getApiConfigPath();
+  }
+
   /**
    * Calculate SHA-256 hash for content
    */
@@ -35,10 +40,22 @@ export class ConfigFileService {
    */
   async saveApiConfig(
     apiSlug: string, 
-    config: any
+    config: any // Expecting ApiConfig type structure
   ): Promise<{ filePath: string; configHash: string }> {
+    // Ensure base API directory exists
     const apiDir = path.join(getConfigBasePath(), "apis", apiSlug);
     await ensureDirectoryExists(apiDir);
+
+    // Initialize versioning fields if not present
+    if (!config.availableVersions || config.availableVersions.length === 0) {
+      config.availableVersions = ['v1'];
+    }
+    if (!config.currentVersion) {
+      config.currentVersion = config.availableVersions[0] || 'v1';
+    }
+
+    // Ensure the current version directory structure exists
+    await this.ensureApiDirectoryStructure(apiSlug, config.currentVersion);
     
     const filePath = path.join(apiDir, "api.json");
     const configStr = JSON.stringify(config, null, 2);

@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { Context } from 'hono';
 import process from 'node:process';
-import { db } from '../db/index.ts';
-import * as schema from '../db/schema.ts';
+import { db } from '../db/index.js';
+import * as schema from '../db/schema.js';
 import { desc, eq, sql } from 'drizzle-orm';
 
 // Setup DCR internal routes
@@ -118,8 +118,8 @@ export function setupDcrRoutes(app: Hono): void {
 async function checkDbConnectivity(): Promise<boolean> {
   try {
     // Run a simple query to verify the database is responsive
-    const result = await db.select({ value: sql`1` }).get();
-    return result?.value === 1;
+    const result = await db.select({ value: sql`1` }).from(sql`sqlite_master`).limit(1);
+    return result.length > 0 && result[0].value === 1;
   } catch (error) {
     console.error('Database connectivity check failed:', error);
     return false;

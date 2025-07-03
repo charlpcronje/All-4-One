@@ -76,7 +76,11 @@ async function archiveLogs() {
 }
 
 // Run the archival process if this script is executed directly
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+
+// Run the archival process if this script is executed directly
+// In ESM, we check if the current module's URL matches the main module's URL
+if (import.meta.url === fileURLToPath(process.argv[1])) {
   archiveLogs().then(() => process.exit(0));
 }
 

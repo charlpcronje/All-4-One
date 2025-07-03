@@ -1,0 +1,20 @@
+{
+    "name": "digital-cabinet-relay",
+    "version": "1.0.0",
+    "description": "",
+    "private": true,
+    "scripts": {
+      "dev:backend": "cd backend && npm run dev",
+      "dev:frontend": "cd frontend && npm run dev",
+      "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+      "build": "cd frontend && npm run build",
+      "start:backend": "cd backend && npm start",
+      "start:frontend": "cd frontend && npm run preview",
+      "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\""
+    },
+    "devDependencies": {
+      "concurrently": "^8.2.2",
+      "wscat": "^6.1.0"
+    }
+}
+  

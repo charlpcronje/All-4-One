@@ -18,15 +18,21 @@ const LogTypeConfigSchema = z.object({
   level: z.enum(['debug', 'info', 'warn', 'error', 'fatal']).default('info')
 });
 
+// Local Archive Specific Configuration for logging.archival
+const LocalArchivalDetailsSchema = z.object({
+  archivePath: z.string().optional() // Corresponds to LOG_STORAGE_ARCHIVE_PATH from .env or direct config
+}).optional();
+
 // Define logging config schema
 const LoggingConfigSchema = z.object({
   defaultDriver: z.string().default('sqlite'),
   logTypes: z.record(z.string(), LogTypeConfigSchema).optional(),
   drivers: z.record(z.string(), LogDriverConfigSchema).optional(),
   archival: z.object({
-    driver: z.enum(['s3', 'ftp', 'archive']).default('archive'),
-    interval: z.number().int().positive().default(7),
-    zipOption: z.enum(['zipPerLog', 'zipAllTogether', 'none']).default('none')
+    driver: z.string().default('local_archive'), // Now a string: API name or 'local_archive'
+    liveLogDays: z.number().int().positive().default(7),
+    zipOption: z.enum(['zipPerLog', 'zipAllTogether', 'none']).default('none'),
+    local: LocalArchivalDetailsSchema // Configuration for the 'local_archive' driver
   }).optional()
 });
 
@@ -87,9 +93,13 @@ const defaultConfig = {
       }
     },
     archival: {
-      driver: 'archive',
-      interval: 7,
-      zipOption: 'none'
+      driver: 'local_archive', // Default to local_archive
+      liveLogDays: 7,
+      zipOption: 'none',
+      local: {
+        // Default archivePath could be set here or rely on .env LOG_STORAGE_ARCHIVE_PATH
+        // For now, leave it empty to imply reliance on .env or more specific config.
+      }
     }
   }
 };

@@ -6,7 +6,7 @@
  */
 import cron from 'node-cron';
 import { archiveLogs } from '../scripts/archive-logs.js';
-import { LogPhase, logToDb } from '../logging/index.js';
+import { LogPhase, logToDB } from '../logging/index.js';
 import { env } from '../env.js';
 
 // Task registry to keep track of all scheduled tasks
@@ -25,10 +25,11 @@ export function scheduleLogArchiving(cronExpression = '0 0 * * *'): void {
   // Schedule task
   const task = cron.schedule(cronExpression, async () => {
     try {
-      await logToDb({
+      await logToDB({
         phase: LogPhase.ARCHIVE,
         message: 'Scheduled log archiving task started',
-        success: true,
+        source: 'scheduler',
+        level: 'info',
         metadata: {
           service: env.SERVICE_ID || 'dcr-backend',
           cronExpression
@@ -39,10 +40,11 @@ export function scheduleLogArchiving(cronExpression = '0 0 * * *'): void {
     } catch (error) {
       console.error('Error in scheduled log archiving task:', error);
       
-      await logToDb({
+      await logToDB({
         phase: LogPhase.ARCHIVE,
         message: 'Scheduled log archiving task failed',
-        success: false,
+        source: 'scheduler',
+        level: 'error',
         metadata: {
           error: error instanceof Error ? error.message : String(error),
           service: env.SERVICE_ID || 'dcr-backend'
@@ -61,10 +63,11 @@ export function scheduleLogArchiving(cronExpression = '0 0 * * *'): void {
  * Initialize all scheduled tasks
  */
 export async function initializeScheduler(): Promise<void> {
-  await logToDb({
+  await logToDB({
     phase: LogPhase.INIT,
     message: 'Initializing task scheduler',
-    success: true,
+    source: 'scheduler',
+    level: 'info',
     metadata: {
       service: env.SERVICE_ID || 'dcr-backend'
     }
@@ -75,10 +78,11 @@ export async function initializeScheduler(): Promise<void> {
   
   // Add more scheduled tasks here as needed
   
-  await logToDb({
+  await logToDB({
     phase: LogPhase.INIT,
     message: 'Task scheduler initialized',
-    success: true,
+    source: 'scheduler',
+    level: 'info',
     metadata: {
       taskCount: scheduledTasks.size,
       service: env.SERVICE_ID || 'dcr-backend'
@@ -90,10 +94,11 @@ export async function initializeScheduler(): Promise<void> {
  * Stop all scheduled tasks
  */
 export async function shutdownScheduler(): Promise<void> {
-  await logToDb({
+  await logToDB({
     phase: LogPhase.SHUTDOWN,
     message: 'Shutting down task scheduler',
-    success: true,
+    source: 'scheduler',
+    level: 'info',
     metadata: {
       taskCount: scheduledTasks.size,
       service: env.SERVICE_ID || 'dcr-backend'

@@ -26,7 +26,7 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLElement> {
   }[];
 }
 
-export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
+export function SidebarNav({ className, items, ...props }: z.infer<typeof SidebarNavPropsSchema>) {
   return (
     <nav className={cn("flex flex-col", className)} {...props}>
       {items.map((item) => {

@@ -16,15 +16,15 @@ export async function initializeLogging(): Promise<void> {
   try {
     systemLogger.info('Initializing logging system', {
       logLevel: config.logLevel,
-      logDrivers: config.logDrivers
+      logDrivers: config.logging?.drivers ? Object.keys(config.logging.drivers) : []
     });
 
     // Get a reference to the LogManager singleton
     const logManager = LogManager.getInstance();
     
     // Ensure log directories exist
-    if (config.logDrivers.includes('file')) {
-      const logDir = path.resolve(process.cwd(), config.logPath || 'logs');
+    if (config.logging?.drivers?.file) {
+      const logDir = path.resolve(process.cwd(), config.logging?.drivers?.file?.basePath || 'logs');
       systemLogger.info(`Ensuring log directory exists: ${logDir}`);
       
       try {
@@ -36,21 +36,25 @@ export async function initializeLogging(): Promise<void> {
     }
 
     // Initialize each enabled driver
-    for (const driverType of config.logDrivers) {
+    for (const driverType of config.logging?.drivers ? Object.keys(config.logging.drivers) : []) {
       try {
         systemLogger.info(`Initializing log driver: ${driverType}`);
         
         switch (driverType) {
           case 'sqlite':
-            const { SqliteLogDriver } = await import('./drivers/sqlite-driver.js');
-            logManager.registerDriver(new SqliteLogDriver());
+            const { SQLiteLogDriver } = await import('./drivers/sqlite-driver.js');
+            logManager.registerDriver('sqlite', new SQLiteLogDriver());
             break;
           
           case 'file':
             const { FileLogDriver } = await import('./drivers/file-driver.js');
-            logManager.registerDriver(new FileLogDriver({
-              logPath: config.logPath || 'logs',
-              logLevel: config.logLevel || 'info'
+            logManager.registerDriver('file', new FileLogDriver({
+              basePath: config.logging?.drivers?.file?.basePath || 'logs',
+              options: {
+                logLevel: config.logLevel || 'info',
+                maxSizeMB: config.logging?.drivers?.file?.maxSizeMB || 10,
+                maxFiles: config.logging?.drivers?.file?.maxFiles || 7,
+              }
             }));
             break;
           
@@ -86,7 +90,7 @@ export async function shutdownLogging(): Promise<void> {
     const logManager = LogManager.getInstance();
     
     // Close all drivers
-    await logManager.closeAll();
+    await logManager.shutdown();
     
     systemLogger.info('Logging system successfully shut down');
   } catch (error) {

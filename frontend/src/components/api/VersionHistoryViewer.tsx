@@ -125,7 +125,7 @@ export default function VersionHistoryViewer({
     }, 1200);
   };
   
-  const handleViewDiff = (commit: CommitInfo) => {
+  const handleViewDiff = (commit: z.infer<typeof CommitInfoSchema>) => {
     setSelectedCommit(commit);
     setDiffLoading(true);
     setDiffDialogOpen(true);

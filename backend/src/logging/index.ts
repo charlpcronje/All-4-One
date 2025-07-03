@@ -1,17 +1,13 @@
-/**
- * Main logging system entry point
- * Re-exports all logging functionality from modular files
- */
 
-// Re-export core types and constants
-export { LogLevel, LOG_LEVELS, COLORS } from './constants.js';
-export { LogType, LogPhase, LogPhaseEnum, LogEntry, LogDriverConfig, LogDriver } from './types.js';
+export { LOG_LEVELS, COLORS } from './constants.js';
+export { LogType, LogPhase, LogPhaseEnum } from './types.js';
+export type { LogEntry, LogDriverConfig, LogDriver } from './types.js';
 
 // Re-export core logger implementation
 export { Logger, createLogger, systemLogger } from './core.js';
 
 // Re-export middleware
-export { loggerMiddleware, LoggerMiddlewareOptions } from './middleware.js';
+export { loggerMiddleware, LoggerMiddlewareOptionsSchema } from './middleware.js';
 
 // Re-export database functionality
 export { logToDB, findOldLogs } from './database.js';

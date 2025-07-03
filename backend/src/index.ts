@@ -7,6 +7,11 @@ import { env } from './env.js';
 import { config } from './config.js';
 import { setupApiRoutes } from './routes/api.js';
 import { setupDcrRoutes } from './routes/dcr.js';
+import { createAuthRouter } from './routes/auth/index.js';
+import { db } from './db/index.js';
+import * as schema from './db/schema.js';
+import { hashPassword } from './routes/user/index.js';
+import { eq } from 'drizzle-orm';
 import { lifecycleMiddleware } from './lifecycle/index.js';
 import { loggerMiddleware, systemLogger, initializeLogging, shutdownLogging } from './logging/index.js';
 import { initializeScheduler, shutdownScheduler } from './scheduler/index.js';
@@ -44,9 +49,35 @@ app.get('/health', (c: Context) => {
 });
 
 // Setup API routes with /api base path
-const api = new Hono();
-const apiRouter = setupApiRoutes();
-app.route('/api', apiRouter);
+setupApiRoutes(app);
+
+// Setup Auth routes
+const authRouter = createAuthRouter();
+app.route('/auth', authRouter);
+
+// Ensure admin user exists
+(async () => {
+  const adminEmail = 'charlc@digitalcabinet.co.za';
+  const adminPassword = 'admin'; // Temporary password
+
+  const existingAdmin = await db.query.users.findFirst({
+    where: eq(schema.users.email, adminEmail),
+  });
+
+  if (!existingAdmin) {
+    const hashedPassword = await hashPassword(adminPassword);
+    await db.insert(schema.users).values({
+      email: adminEmail,
+      passwordHash: hashedPassword,
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    systemLogger.info(`Admin user ${adminEmail} created with temporary password.`);
+  } else {
+    systemLogger.info(`Admin user ${adminEmail} already exists.`);
+  }
+})();
 
 // Setup DCR internal routes with /dcr base path
 const dcr = new Hono();
@@ -64,7 +95,7 @@ initializeLogging().catch(err => {
 });
 
 // Start the server
-const port = env.PORT ? parseInt(env.PORT, 10) : 3000;
+const port: number = Number(process.env.PORT); 
 
 systemLogger.info(`Starting DCR backend server on port ${port.toString()}`, {
   environment: env.NODE_ENV,
@@ -74,7 +105,7 @@ systemLogger.info(`Starting DCR backend server on port ${port.toString()}`, {
 // @hono/node-server expects port as a number
 serve({
   fetch: app.fetch,
-  port
+  port: port
 });
 
 // Setup graceful shutdown handlers

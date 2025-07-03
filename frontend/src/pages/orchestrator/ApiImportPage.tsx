@@ -89,7 +89,7 @@ export default function ApiImportPage() {
         throw new Error("Invalid Postman collection format");
       }
       
-      const collection: ParsedCollection = {
+      const collection: z.infer<typeof ParsedCollectionSchema> = {
         name: json.info.name,
         description: json.info.description?.content || json.info.description,
         baseUrl: json.variable?.find((v: any) => v.key === "baseUrl")?.value || "",

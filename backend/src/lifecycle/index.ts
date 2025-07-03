@@ -112,7 +112,7 @@ export function lifecycleMiddleware() {
 // Helper to run request hooks
 export function runRequestHooks(
   c: Context, 
-  hookContext: HookContext = {}
-): Promise<HookContext> {
+  hookContext: z.infer<typeof HookContextSchema> = {}
+): Promise<z.infer<typeof HookContextSchema>> {
   return executeHooks('request', c, hookContext);
 }

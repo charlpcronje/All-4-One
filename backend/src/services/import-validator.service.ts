@@ -82,12 +82,12 @@ export class ImportValidatorService {
    */
   getCollectionOverview(collection: z.infer<typeof parsedCollectionSchema>): {
     name: string;
-    description: string | undefined;
+    description: string | undefined | null;
     endpointCount: number;
     endpoints: Array<{
       method: string;
       path: string;
-      description: string | undefined;
+      description: string | undefined | null;
     }>;
   } {
     return {
@@ -97,7 +97,7 @@ export class ImportValidatorService {
       endpoints: collection.endpoints.map(endpoint => ({
         method: endpoint.method,
         path: endpoint.path,
-        description: endpoint.description || undefined,
+        description: endpoint.description || undefined || null,
       }))
     };
   }

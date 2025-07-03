@@ -1,4 +1,5 @@
-// Using dynamic import for simple-git to avoid type issues
+// Using createRequire for simple-git to handle ES module compatibility
+import { createRequire } from 'node:module';
 import type { SimpleGit } from 'simple-git';
 import { getConfigBasePath } from '../config.js';
 import fs from 'node:fs/promises';
@@ -14,9 +15,10 @@ export class GitService {
     this.initGit();
   }
   
-  private async initGit() {
-    // Dynamically import simple-git
-    const { default: simpleGit } = await import('simple-git');
+  private initGit() {
+    // Use createRequire to import simple-git properly in ES module context
+    const require = createRequire(import.meta.url);
+    const simpleGit = require('simple-git');
     
     this.git = simpleGit({
       baseDir: getConfigBasePath(),

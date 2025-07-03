@@ -1,6 +1,4 @@
-/**
- * Logging system types and interfaces
- */
+import { z } from 'zod';
 
 // Types of logs in the system
 export enum LogType {
@@ -41,29 +39,28 @@ export enum LogPhase {
 export const LogPhaseEnum = LogPhase;
 
 // Core log entry structure
-export interface LogEntry {
-  message: string;
-  timestamp: Date;
-  source: string;
-  metadata?: Record<string, unknown> | string;
-  type?: LogType;
-  level?: LogLevel;
-  phase?: LogPhase | string;
-}
+export const LogEntrySchema = z.object({
+  message: z.string(),
+  timestamp: z.date(),
+  source: z.string(),
+  metadata: z.record(z.unknown()).or(z.string()).optional(),
+  type: z.nativeEnum(LogType).optional(),
+  level: z.nativeEnum(LogLevel).optional(),
+  phase: z.nativeEnum(LogPhase).or(z.string()).optional(),
+});
+
+export type LogEntry = z.infer<typeof LogEntrySchema>;
 
 // Configuration for a log driver
-export interface LogDriverConfig {
-  // Connection string or path for the driver
-  connectionString?: string;
-  
-  // For file drivers - path configuration
-  basePath?: string;
-  maxSizeMB?: number;
-  maxFiles?: number;
-  
-  // Driver-specific additional config
-  options?: Record<string, unknown>;
-}
+export const LogDriverConfigSchema = z.object({
+  connectionString: z.string().optional(),
+  basePath: z.string().optional(),
+  maxSizeMB: z.number().optional(),
+  maxFiles: z.number().optional(),
+  options: z.record(z.unknown()).optional(),
+});
+
+export type LogDriverConfig = z.infer<typeof LogDriverConfigSchema>;
 
 // Storage options for log archiving
 export enum LogStorageDriver {
@@ -79,29 +76,24 @@ export enum LogStorageZipOption {
 }
 
 // Configuration for the main logging system
-export interface LoggingConfig {
-  // Default driver to use if not specified for a log type
-  defaultDriver: string;
-  
-  // Configuration for each log type
-  logTypes: Record<string, {
-    driver: string;
-    level: LogLevel;
-  }>;
-  
-  // Configuration for each driver
-  drivers: Record<string, LogDriverConfig>;
-  
-  // Archival configuration
-  archival?: {
-    driver: LogStorageDriver;
-    interval: number; // in days
-    zipOption: LogStorageZipOption;
-    // Driver-specific config will come from env variables
-  };
-}
+export const LoggingConfigSchema = z.object({
+  defaultDriver: z.string(),
+  logTypes: z.record(z.object({
+    driver: z.string(),
+    level: z.nativeEnum(LogLevel),
+  })),
+  drivers: z.record(LogDriverConfigSchema),
+  archival: z.object({
+    driver: z.nativeEnum(LogStorageDriver),
+    interval: z.number(), // in days
+    zipOption: z.nativeEnum(LogStorageZipOption),
+  }).optional(),
+});
+
+export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
 
 // Interface that all log drivers must implement
+// This is a contract for an implementation, not a data structure, so it remains an interface.
 export interface LogDriver {
   // Write a log entry to the driver's destination
   write(entry: LogEntry): Promise<void>;

@@ -62,22 +62,25 @@ export const logs = sqliteTable('logs', {
   metadataJson: text('metadata_json')
 });
 
-// Webhooks table
+// Webhooks table - UPDATED
 export const webhooks = sqliteTable('webhooks', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  endpointId: integer('endpoint_id').notNull().references(() => endpoints.id),
-  phase: text('phase', {
-    enum: ['beforeRequest', 'request', 'afterRequest', 'beforeExecute', 'execute', 'afterExecute']
-  }).notNull(),
-  statusCode: integer('status_code'),
-  url: text('url').notNull()
+  event: text('event', { enum: ['api.request', 'api.response', 'cache.hit', 'cache.miss', 'error', 'retry', 'system'] }).notNull(),
+  url: text('url').notNull(),
+  secret: text('secret'),
+  description: text('description'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`)
 });
 
-// Cache table
+
+// Cache table - UPDATED
 export const cache = sqliteTable('cache', {
   key: text('key').primaryKey(),
   valueJson: text('value_json').notNull(),
-  expiresAt: integer('expires_at').notNull()
+  expiresAt: integer('expires_at').notNull(),
+  tags: text('tags')
 });
 
 // Retry schedule table
@@ -128,4 +131,16 @@ export const activeEndpoints = sqliteTable('active_endpoints', {
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   activatedAt: text('activated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
+// Webhook Logs table - UPDATED (referencing the new webhooks table)
+export const webhookLogs = sqliteTable('webhook_logs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  webhookId: integer('webhook_id').notNull().references(() => webhooks.id),
+  event: text('event').notNull(),
+  success: integer('success', { mode: 'boolean' }).notNull(),
+  statusCode: integer('status_code'),
+  responseData: text('response_data'),
+  errorMessage: text('error_message'),
+  timestamp: text('timestamp').notNull().default(sql`CURRENT_TIMESTAMP`),
 });

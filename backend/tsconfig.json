@@ -7,9 +7,21 @@
     "strict": true,
     "outDir": "dist",
     "skipLibCheck": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/core/*": ["../core/*"],
+      "@/*": ["src/*"],
+      "@dcr/shared/*": ["../shared/*"]
+    }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../shared/**/*.ts"],
+  "ts-node": {
+    "esm": false,
+    "experimentalSpecifierResolution": "node"
+  },
   "exclude": ["node_modules"]
 }

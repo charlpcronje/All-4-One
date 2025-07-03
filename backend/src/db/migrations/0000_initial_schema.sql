@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS permissions (
 CREATE TABLE IF NOT EXISTS apis (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
+  slug TEXT NOT NULL UNIQUE,
   description TEXT,
   base_url TEXT,
   type TEXT CHECK (type IN ('http', 'websocket', 'rpc')) NOT NULL DEFAULT 'http',

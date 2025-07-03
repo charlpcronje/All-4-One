@@ -1,187 +1,75 @@
-import { Context, Hono } from "hono";
-import { db } from "../../db/index.js";
-import { apis, collections, endpoints, activeEndpoints } from "../../db/schema.js";
-import { ImportValidatorService } from "../../services/import-validator.service.js";
-import { ConfigFileService } from "../../services/config-file.service.js";
-import { GitService } from "../../services/git.service.js";
-import { extendedImportSchema, apiInsertSchema } from "./schemas.js";
+// Path: backend/src/controllers/api-import/import.ts
+// CORRECTED VERSION
+import { z } from "zod";
+import { Hono, Context } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { withTransaction } from '@/db/transactions.js';
+import { createLogger } from '@/logging/index.js';
+import { importPostmanSchema } from './schemas.js';
+import * as schema from '@/db/schema.js';
+import { ImportParserService } from '@/services/import-parser.service.js';
+import crypto from 'node:crypto';
+const logger = createLogger('controller:api-import');
 
-export function createImportRouter(
-  importValidatorService: ImportValidatorService,
-  configFileService: ConfigFileService,
-  gitService: GitService
-) {
-  const router = new Hono();
+const calculateHash = (content: any): string => {
+   const stringified = JSON.stringify(content, Object.keys(content).sort());
+   return crypto.createHash("sha256").update(stringified).digest("hex");
+};
 
-  // Endpoint to import a validated Postman collection
-  router.post("/", async (c: Context) => {
+/**
+ * Creates a router for handling the final import of a parsed collection.
+ */
+export function createImportRouter() {
+  const importRouter = new Hono();
+  const parserService = new ImportParserService();
+
+  importRouter.post('/', zValidator('json', importPostmanSchema), async (c: Context) => {
     try {
-      const body = await c.req.json();
-      const validatedBody = extendedImportSchema.parse(body);
-      
-      const { 
-        collectionData, 
-        name, 
-        description, 
-        version, 
-        basePath, 
-        tags = [], 
-        selectedEndpoints = [],
-        userId = 1 
-      } = validatedBody;
-      
-      // Step 1: Validate the collection
-      const { validatedCollection, endpointSelections } = 
-        await importValidatorService.validatePostmanCollection(collectionData);
-      
-      // Step 2: Generate a slug for the API
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-      
-      // Step 3: Initialize Git repository if needed
-      await gitService.ensureGitInitialized();
-      
-      // Step 4: Filter selected endpoints
-      const filteredEndpoints = importValidatorService.filterSelectedEndpoints(
-        validatedCollection,
-        selectedEndpoints,
-        endpointSelections
-      ).endpoints;
-      
-      // Step 5: Insert API record
-      // Prepare the API config as JSON
-      const apiConfig = JSON.stringify({
-        name,
-        description: description || validatedCollection.description || '',
-        basePath: basePath || validatedCollection.baseUrl || '',
-        version,
-        type: "http"
-      });
-      
-      // Calculate config hash
-      const apiConfigHash = await configFileService.calculateHash(apiConfig);
-      
-      // Create API insert object with correct schema and properties
-      const apiInsert = {
-        name,
-        slug,
-        description: description || validatedCollection.description || '',
-        basePath: basePath || validatedCollection.baseUrl || '',
-        version,
-        tags: tags || [],
-        active: true,
-        type: "http", // Default to HTTP API type
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        config: apiConfig,
-        configHash: apiConfigHash
-      };
-      
-      const apiResult = await db.insert(apis).values(apiInsert as any).returning();
-      const apiId = apiResult[0].id;
-      
-      // Step 6: Save collection data to DB
-      const collectionInsert = {
-        apiId,
-        userId,
-        name,
-        description: description || validatedCollection.description || '',
-        rawData: collectionData,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        metadata: JSON.stringify({
-          endpointCount: validatedCollection.endpoints.length || 0,
-          selectedCount: selectedEndpoints.length,
-          version
-        })
-      };
-      
-      const collectionRecord = await db.insert(collections).values(collectionInsert as any).returning();
-      const collectionId = collectionRecord[0].id;
-      
-      // Step 7: Insert endpoints
-      const endpointInserts = [];
-      
-      // Define the filtered endpoints type
-      const typedFilteredEndpoints = filteredEndpoints as any[];
-      
-      for (const endpoint of typedFilteredEndpoints) {
-        // Create endpoint config
-        const endpointConfig = JSON.stringify({
-          headers: endpoint.headers || {},
-          body: endpoint.body || {}
+      const { collectionData, name, slug } = c.req.valid('json');
+
+      const parsedCollection = await parserService.parsePostmanCollection(collectionData);
+      const processDefinition = parserService.createProcessDefinition(parsedCollection);
+
+      const [newApi] = await withTransaction(c, 'import postman collection', async (tx) => {
+        const configString = JSON.stringify({
+            importedFrom: 'postman',
+            baseUrl: parsedCollection.baseUrl,
         });
-        
-        // Calculate config hash
-        const configHash = await configFileService.calculateHash(endpointConfig);
-        
-        // Create endpoint insert object
-        endpointInserts.push({
-          apiId,
-          method: endpoint.method,
-          path: endpoint.path,
-          description: endpoint.description || '',
-          requestSchema: JSON.stringify(endpoint.params || {}),
-          responseSchema: JSON.stringify({}),
-          config: endpointConfig,
-          configHash,
-          active: true,
-          version,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      }
-      
-      const endpointResults = await db.insert(endpoints).values(endpointInserts as any).returning();
-      
-      // Step 8: Insert active endpoints
-      const activeEndpointInserts = endpointResults.map(endpoint => ({
-        endpointId: endpoint.id,
-        userId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
-      
-      await db.insert(activeEndpoints).values(activeEndpointInserts as any);
-      
-      // Step 9: Save API and endpoint configs to filesystem
-      await configFileService.saveApiConfig(
-        slug,
-        JSON.parse(apiConfig)
-      );
-      
-      for (const endpoint of endpointResults) {
-        // For each endpoint, save its config to filesystem
-        await configFileService.saveEndpointConfig(
-          slug,
-          version,
-          { 
-            method: endpoint.method, 
-            path: endpoint.path 
-          },
-          JSON.parse(endpoint.config)
-        );
-      }
-      
-      // Step 10: Commit changes to Git
-      await gitService.commitChanges(`Imported API ${name} with ${endpointResults.length} endpoints`);
-      
-      return c.json({
-        success: true,
-        data: {
-          api: apiResult[0],
-          collection: collectionRecord[0],
-          endpoints: endpointResults.length,
-          activeEndpoints: activeEndpointInserts.length
-        },
+
+        const [apiRecord] = await tx.insert(schema.apis).values({
+          name: name,
+          slug: slug,
+          description: parsedCollection.description,
+          type: 'http',
+          config: configString,
+          configHash: calculateHash(configString),
+        }).returning();
+
+        await tx.insert(schema.endpoints).values({
+            apiId: apiRecord.id,
+            path: '/',
+            method: 'POST',
+            description: `Main process for ${name}`,
+            version: 'v1',
+            config: JSON.stringify(processDefinition),
+            configHash: calculateHash(processDefinition),
+        }).returning();
+
+        return [apiRecord];
       });
+
+      if (!newApi) {
+          throw new Error("API creation failed after transaction.");
+      }
+
+      logger.info('Successfully imported Postman collection as new API', { apiId: newApi.id, name: newApi.name });
+      return c.json({ success: true, data: newApi });
+
     } catch (error: any) {
-      console.error("Import error:", error);
-      return c.json({
-        success: false,
-        error: error.message || "Failed to import Postman collection",
-      }, 400);
+      logger.error('Failed to import Postman collection', { error: error.message });
+      return c.json({ success: false, error: 'Import failed: ' + error.message }, 500);
     }
   });
 
-  return router;
+  return importRouter;
 }

@@ -5,15 +5,17 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { Moon, Sun } from "lucide-react";
 
-interface JsonEditorProps {
-  initialValue: string;
-  onChange?: (value: string) => void;
-  onValidate?: (isValid: boolean) => void;
-  schema?: z.ZodType<any>;
-  height?: string;
-  className?: string;
-  readOnly?: boolean;
-}
+export const JsonEditorPropsSchema = z.object({
+  initialValue: z.string(),
+  onChange: z.function().args(z.string()).returns(z.void()).optional(),
+  onValidate: z.function().args(z.boolean()).returns(z.void()).optional(),
+  schema: z.any().optional(), // z.ZodType<any> is hard to represent directly in Zod
+  height: z.string().optional(),
+  className: z.string().optional(),
+  readOnly: z.boolean().optional(),
+});
+
+export type JsonEditorProps = z.infer<typeof JsonEditorPropsSchema>;
 
 export default function JsonEditor({
   initialValue,
@@ -23,7 +25,7 @@ export default function JsonEditor({
   height = "500px",
   className,
   readOnly = false,
-}: JsonEditorProps) {
+}: z.infer<typeof JsonEditorPropsSchema>) {
   const [, setEditorContent] = useState<string>(initialValue); // Only using the setter
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<Monaco | null>(null);

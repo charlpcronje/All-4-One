@@ -22,7 +22,6 @@ export class LogManager {
   private defaultLogLevel: LogLevel = LogLevel.INFO;
   private initialized = false;
   private config: LoggingConfig;
-
   private constructor() {
     // Default minimal config - will be overridden in initialize()
     this.config = {
@@ -31,9 +30,17 @@ export class LogManager {
         [LogType.APPLICATION]: { driver: 'sqlite', level: LogLevel.INFO },
       },
       drivers: {
-        sqlite: {},
+        sqlite: {},   
       }
     };
+  }
+
+  public getDriverCount(): number {
+    return this.drivers.size;
+  }
+
+  public registerDriver(name: string, driver: LogDriver): void {
+    this.drivers.set(name, driver);
   }
 
   /**

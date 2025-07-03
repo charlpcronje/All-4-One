@@ -1,88 +1,78 @@
 import * as z from 'zod';
 
-// Define types for Postman Collection v2.1
-interface PostmanCollection {
-  info: {
-    name: string;
-    description?: string;
-    schema: string; // Should be "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  };
-  item: PostmanItem[];
-}
+import { ParsedEndpoint, ParsedCollection } from '../controllers/api-import/schemas.ts';
 
-interface PostmanItem {
-  name: string;
-  description?: string;
-  request?: PostmanRequest;
-  response?: PostmanResponse[];
-  item?: PostmanItem[]; // For nested folders
-}
+export const PostmanHeaderSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  disabled: z.boolean().optional(),
+  description: z.string().optional(),
+});
 
-interface PostmanRequest {
-  method: string;
-  url: PostmanUrl;
-  header?: PostmanHeader[];
-  body?: any;
-  description?: string;
-}
+export const PostmanQueryParamSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  disabled: z.boolean().optional(),
+  description: z.string().optional(),
+});
 
-interface PostmanUrl {
-  raw: string;
-  protocol?: string;
-  host?: string[];
-  path?: string[];
-  query?: PostmanQueryParam[];
-  variable?: PostmanVariable[];
-}
+export const PostmanVariableSchema = z.object({
+  key: z.string(),
+  value: z.string(),
+  description: z.string().optional(),
+});
 
-interface PostmanHeader {
-  key: string;
-  value: string;
-  disabled?: boolean;
-  description?: string;
-}
+export const PostmanUrlSchema = z.object({
+  raw: z.string(),
+  protocol: z.string().optional(),
+  host: z.array(z.string()).optional(),
+  path: z.array(z.string()).optional(),
+  query: z.array(PostmanQueryParamSchema).optional(),
+  variable: z.array(PostmanVariableSchema).optional(),
+});
 
-interface PostmanQueryParam {
-  key: string;
-  value: string;
-  disabled?: boolean;
-  description?: string;
-}
+export const PostmanRequestSchema = z.object({
+  method: z.string(),
+  url: PostmanUrlSchema,
+  header: z.array(PostmanHeaderSchema).optional(),
+  body: z.any().optional(),
+  description: z.string().optional(),
+});
 
-interface PostmanVariable {
-  key: string;
-  value: string;
-  description?: string;
-}
+export const PostmanResponseSchema = z.object({
+  name: z.string(),
+  code: z.number(),
+  status: z.string(),
+  _postman_previewlanguage: z.string().optional(),
+  header: z.array(PostmanHeaderSchema).optional(),
+  body: z.any().optional(),
+});
 
-interface PostmanResponse {
-  name: string;
-  code: number;
-  status: string;
-  _postman_previewlanguage?: string;
-  header?: PostmanHeader[];
-  body?: any;
-}
+export const PostmanItemSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  request: PostmanRequestSchema.optional(),
+  response: z.array(PostmanResponseSchema).optional(),
+  item: z.array(z.lazy(() => PostmanItemSchema)).optional(), // For nested folders
+});
 
-// Define our parsed format
-export interface ParsedEndpoint {
-  method: string;
-  path: string;
-  url: string;
-  description?: string;
-  headers?: Record<string, string>;
-  queryParams?: Record<string, string>;
-  body?: any;
-  valid: boolean;
-  validationMessage?: string;
-}
+export const PostmanCollectionSchema = z.object({
+  info: z.object({
+    name: z.string(),
+    description: z.string().optional(),
+    schema: z.string(), // Should be "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  }),
+  item: z.array(PostmanItemSchema),
+});
 
-export interface ParsedCollection {
-  name: string;
-  description?: string;
-  baseUrl?: string;
-  endpoints: ParsedEndpoint[];
-}
+export type PostmanCollection = z.infer<typeof PostmanCollectionSchema>;
+export type PostmanItem = z.infer<typeof PostmanItemSchema>;
+export type PostmanRequest = z.infer<typeof PostmanRequestSchema>;
+export type PostmanUrl = z.infer<typeof PostmanUrlSchema>;
+export type PostmanHeader = z.infer<typeof PostmanHeaderSchema>;
+export type PostmanQueryParam = z.infer<typeof PostmanQueryParamSchema>;
+export type PostmanVariable = z.infer<typeof PostmanVariableSchema>;
+export type PostmanResponse = z.infer<typeof PostmanResponseSchema>;
 
 /**
  * Parse a Postman collection v2.1 JSON string into our internal format
@@ -137,7 +127,7 @@ function processItems(items: PostmanItem[], endpoints: ParsedEndpoint[], parentP
 /**
  * Process a single Postman endpoint
  */
-function processEndpoint(item: PostmanItem, folderPath: string): ParsedEndpoint {
+function processEndpoint(item: z.infer<typeof PostmanItemSchema>, folderPath: string): ParsedEndpoint {
   if (!item.request) {
     return {
       method: 'GET',

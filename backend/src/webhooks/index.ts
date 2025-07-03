@@ -1,9 +1,8 @@
-import { db } from '../db/index.ts';
-import * as schema from '../db/schema.ts';
-import { withReadQuery } from '../db/transactions.ts';
-import { createLogger } from '../logging/index.ts';
+import { db } from '../db/index.js';
+import * as schema from '../db/schema.js';
+import { withReadQuery } from '../db/transactions.js';
+import { createLogger } from '../logging/index.js';
 import { eq, and } from 'drizzle-orm';
-import process from 'node:process';
 
 // Logger for webhook operations
 const logger = createLogger('webhook');
@@ -27,10 +26,6 @@ export interface WebhookDeliveryResult {
 
 /**
  * Send a webhook notification to registered subscribers
- * @param event - Type of event
- * @param source - Source of the event
- * @param data - Event data
- * @returns Promise resolving to an array of delivery results
  */
 export async function sendWebhook(
   event: WebhookEvent, 
@@ -67,22 +62,15 @@ export async function sendWebhook(
     logger.info(`Sending ${event} webhook to ${subscribers.length} subscribers`, { source });
 
     // Send webhook to all subscribers in parallel
-    const results = await Promise.all(
-      subscribers.map(async (subscriber) => {
-        try {
-          return await deliverWebhook(subscriber.url, payload, subscriber.secret);
-        } catch (error) {
-          logger.error(`Failed to deliver webhook to ${subscriber.url}`, { error });
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : String(error)
-          };
-        }
-      })
-    );
+    const deliveryPromises = subscribers.map(subscriber => {
+        // TODO: Implement secure retrieval of webhook secret from a vault using subscriber.id or a secret reference.
+        return deliverWebhook(subscriber.url, payload, subscriber.secret);
+    });
+
+    const results = await Promise.all(deliveryPromises);
 
     // Record delivery attempts
-    await recordDeliveryAttempts(event, subscribers, results);
+    await recordDeliveryAttempts(subscribers, results);
     
     return results;
   } catch (error) {
@@ -96,10 +84,6 @@ export async function sendWebhook(
 
 /**
  * Register a new webhook subscription
- * @param url - Webhook URL to call
- * @param event - Event to subscribe to
- * @param secret - Optional secret for webhook signing
- * @returns Created webhook subscription
  */
 export async function registerWebhook(
   url: string, 
@@ -113,13 +97,14 @@ export async function registerWebhook(
       .values({
         url,
         event,
-        secret: secret || null,
-        active: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        secret,
       })
       .returning();
     
+    if (!webhook) {
+      throw new Error('Failed to register webhook after insert operation.');
+    }
+
     return webhook;
   } catch (error) {
     logger.error(`Failed to register webhook`, { url, event, error });
@@ -129,12 +114,8 @@ export async function registerWebhook(
 
 /**
  * Deliver a webhook payload to a subscriber
- * @param url - Webhook URL
- * @param payload - Webhook payload
- * @param secret - Optional secret for signing the payload
- * @returns Webhook delivery result
  */
-async function deliverWebhook(
+export async function deliverWebhook(
   url: string, 
   payload: WebhookPayload,
   secret?: string | null
@@ -205,16 +186,12 @@ async function deliverWebhook(
 
 /**
  * Sign webhook payload with a secret
- * @param payload - Webhook payload
- * @param secret - Secret key
- * @returns Signature string
  */
 async function signPayload(payload: WebhookPayload, secret: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(JSON.stringify(payload));
   const keyData = encoder.encode(secret);
   
-  // Create a key from the secret
   const key = await crypto.subtle.importKey(
     'raw',
     keyData,
@@ -223,10 +200,8 @@ async function signPayload(payload: WebhookPayload, secret: string): Promise<str
     ['sign']
   );
   
-  // Sign the payload
   const signature = await crypto.subtle.sign('HMAC', key, data);
   
-  // Convert to hex string
   return Array.from(new Uint8Array(signature))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
@@ -236,28 +211,26 @@ async function signPayload(payload: WebhookPayload, secret: string): Promise<str
  * Record webhook delivery attempts in the database
  */
 async function recordDeliveryAttempts(
-  event: WebhookEvent,
-  subscribers: typeof schema.webhooks.$inferSelect[],
-  results: WebhookDeliveryResult[]
+  subscribers: (typeof schema.webhooks.$inferSelect)[],
+  results: z.infer<typeof WebhookDeliveryResultSchema>[]
 ): Promise<void> {
   try {
-    // Skip if no logs to record
     if (subscribers.length === 0) return;
     
-    // Bulk insert delivery logs
-    await db.insert(schema.webhookLogs).values(
-      subscribers.map((subscriber, index) => ({
-        webhookId: subscriber.id,
-        event,
-        success: results[index].success,
-        statusCode: results[index].statusCode || null,
-        responseData: results[index].response 
-          ? JSON.stringify(results[index].response).substring(0, 1000)
-          : null,
-        errorMessage: results[index].error || null,
-        timestamp: new Date()
-      }))
-    );
+    const logsToInsert = subscribers.map((subscriber, index) => ({
+      webhookId: subscriber.id,
+      event: subscriber.event,
+      success: results[index].success,
+      statusCode: results[index].statusCode ?? null,
+      responseData: results[index].response 
+        ? JSON.stringify(results[index].response).substring(0, 1000)
+        : null,
+      errorMessage: results[index].error ?? null,
+      timestamp: new Date().toISOString(),
+    }));
+
+    await db.insert(schema.webhookLogs).values(logsToInsert);
+
   } catch (error) {
     logger.error(`Failed to record webhook delivery attempts`, { error });
     // Non-critical error, don't throw

@@ -93,7 +93,9 @@ export const apiConfigSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1, "API name is required"),
   description: z.string().optional(),
-  version: z.string().default("1.0.0"),
+  version: z.string().default("1.0.0"), // Semantic version of the API design
+  currentVersion: z.string().optional(), // Active DCR version (e.g., "v1", "v2")
+  availableVersions: z.array(z.string()).optional(), // List of available DCR versions (e.g., ["v1", "v2"])
   basePath: z.string().startsWith("/").default("/"),
   globalHeaders: z.array(headerSchema).default([]),
   globalAuthentication: z.object({
@@ -115,6 +117,10 @@ export const apiConfigSchema = z.object({
 });
 
 // Helper type for TypeScript
-export type ApiConfig = z.infer<typeof apiConfigSchema>;
+export type ApiConfig = z.infer<typeof apiConfigSchema> & {
+  currentVersion?: string;
+  availableVersions?: string[];
+};
+
 export type Endpoint = z.infer<typeof endpointSchema>;
 export type LifecycleHook = z.infer<typeof lifecycleHookSchema>;

@@ -1,523 +1,161 @@
-import { Hono } from 'hono';
+// Path: backend/src/routes/apis.ts
+// FINAL CORRECTED VERSION
+
+import { Hono, Context } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { db } from '../db/index.ts';
-import * as schema from '../db/schema.ts';
-import { eq } from 'drizzle-orm';
-import { createLogger } from '../logging/index.ts';
-import { withReadQuery, withTransaction, withWriteQuery } from '../db/transactions.ts';
-import { apiRequest, invalidateCache } from '../api/client.ts';
+import { db } from '../db/index.js';
+import * as schema from '../db/schema.js';
+import { eq, DrizzleError } from 'drizzle-orm';
+import { createLogger } from '../logging/index.js';
+import { withTransaction } from '../db/transactions.js';
+import crypto from 'node:crypto';
 
-// Logger for API routes
-const logger = createLogger('routes:apis');
+const logger = createLogger('routes:management:apis');
 
-// API router
-const app = new Hono();
-
-// Schema for API creation
+// Zod schema for creating a new API.
 const createApiSchema = z.object({
-  name: z.string().min(1).max(100),
-  baseUrl: z.string().url().max(255),
-  description: z.string().max(500).optional(),
-  authType: z.enum(['none', 'bearer', 'apikey', 'basic']).optional(),
-  authToken: z.string().max(500).optional(),
-  authHeader: z.string().max(100).optional(),
-  headers: z.record(z.string()).optional(),
-  timeout: z.number().int().min(1000).max(60000).optional(), // 1s to 60s
-  retries: z.number().int().min(0).max(10).optional(),
-  active: z.boolean().optional().default(true)
+  name: z.string().min(1, "Name is required"),
+  slug: z.string().min(1, "Slug is required").regex(/^[a-z0-9-]+$/, "Slug must be lowercase with dashes only."),
+  description: z.string().optional(),
+  type: z.enum(['http', 'websocket', 'rpc']).default('http'),
+  config: z.record(z.any()).default({})
 });
 
-// Schema for API updates
+// Zod schema for updating an API.
 const updateApiSchema = z.object({
-  name: z.string().min(1).max(100).optional(),
-  baseUrl: z.string().url().max(255).optional(),
-  description: z.string().max(500).optional().nullable(),
-  authType: z.enum(['none', 'bearer', 'apikey', 'basic']).optional(),
-  authToken: z.string().max(500).optional().nullable(),
-  authHeader: z.string().max(100).optional().nullable(),
-  headers: z.record(z.string()).optional().nullable(),
-  timeout: z.number().int().min(1000).max(60000).optional(), // 1s to 60s
-  retries: z.number().int().min(0).max(10).optional(),
-  active: z.boolean().optional()
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).regex(/^[a-z0-9-]+$/, "Slug must be lowercase with dashes only.").optional(),
+  description: z.string().optional().nullable(),
+  type: z.enum(['http', 'websocket', 'rpc']).optional(),
+  config: z.record(z.any()).optional()
 });
 
-// Schema for testing an API endpoint
-const testApiSchema = z.object({
-  endpoint: z.string().max(255),
-  method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
-  headers: z.record(z.string()).optional(),
-  body: z.any().optional(),
-  timeout: z.number().int().min(1000).max(60000).optional()
-});
+// Helper to calculate a consistent hash for a JSON object.
+const calculateHash = (content: any): string => {
+   const stringified = JSON.stringify(content, Object.keys(content).sort());
+   return crypto.createHash("sha256").update(stringified).digest("hex");
+};
 
-// Schema for cache invalidation
-const invalidateCacheSchema = z.object({
-  tags: z.array(z.string()).optional(),
-  urls: z.array(z.string()).optional()
-});
+export function setupApiManagementRoutes() {
+  const managementApi = new Hono();
 
-// List all APIs
-app.get('/', async (c) => {
-  try {
-    const apis = await withReadQuery(c, 'list apis', async () => {
-      return await db.select().from(schema.apis).orderBy(schema.apis.name);
-    });
+  // List all APIs
+  managementApi.get('/', async (c: Context) => {
+    try {
+      const apis = await db.select().from(schema.apis).orderBy(schema.apis.name);
+      return c.json({ success: true, data: apis });
+    } catch (error) {
+        logger.error('Failed to list APIs', { error });
+        return c.json({ success: false, error: 'Failed to list APIs' }, 500);
+    }
+  });
 
-    return c.json({
-      success: true,
-      data: apis.map(api => ({
-        ...api,
-        authToken: api.authToken ? '••••••••' : null // Mask auth token in response
-      }))
-    });
-  } catch (error) {
-    logger.error('Failed to list APIs', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to list APIs'
-    }, 500);
-  }
-});
-
-// Create a new API
-app.post('/', zValidator('json', createApiSchema), async (c) => {
-  try {
-    const body = c.req.valid('json');
-    
-    const [api] = await withWriteQuery(c, 'create api', async () => {
-      return await db.insert(schema.apis)
-        .values({
+  // Create a new API
+  managementApi.post('/', zValidator('json', createApiSchema), async (c: Context) => {
+    try {
+      const body = c.req.valid('json');
+      const configString = JSON.stringify(body.config);
+      
+      const newApi = await withTransaction(c, 'create api', async (tx) => {
+        const insertData = {
           name: body.name,
-          baseUrl: body.baseUrl,
-          description: body.description || null,
-          authType: body.authType || 'none',
-          authToken: body.authToken || null,
-          authHeader: body.authHeader || null,
-          headers: body.headers ? JSON.stringify(body.headers) : null,
-          timeout: body.timeout || 30000,
-          retries: body.retries ?? 3,
-          active: body.active ?? true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .returning();
-    });
-    
-    logger.info('Created new API', { id: api.id, name: api.name });
-    
-    return c.json({
-      success: true,
-      data: {
-        ...api,
-        authToken: api.authToken ? '••••••••' : null // Mask auth token in response
-      }
-    }, 201);
-  } catch (error) {
-    logger.error('Failed to create API', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to create API'
-    }, 500);
-  }
-});
-
-// Get a single API by ID
-app.get('/:id', async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
-    
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    const api = await withReadQuery(c, 'get api', async () => {
-      return await db.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
+          slug: body.slug,
+          description: body.description,
+          type: body.type,
+          config: configString,
+          configHash: calculateHash(body.config),
+        };
+        
+        const result = await tx.insert(schema.apis)
+          .values(insertData)
+          .returning();
+          
+        return result;
       });
-    });
-    
-    if (!api) {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    return c.json({
-      success: true,
-      data: {
-        ...api,
-        authToken: api.authToken ? '••••••••' : null // Mask auth token in response
-      }
-    });
-  } catch (error) {
-    logger.error('Failed to get API', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to get API'
-    }, 500);
-  }
-});
 
-// Update an API
-app.patch('/:id', zValidator('json', updateApiSchema), async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
+      if (!newApi || newApi.length === 0) {
+        throw new Error('Failed to create API');
+      }
+
+      logger.info('Created new API', { id: newApi[0].id, name: newApi[0].name });
+      return c.json({ success: true, data: newApi[0] }, 201);
+    } catch (error) {
+        if (error instanceof DrizzleError && error.message.includes('UNIQUE constraint failed')) {
+            return c.json({ success: false, error: 'An API with that slug already exists.' }, 409);
+        }
+        logger.error('Failed to create API', { error });
+        return c.json({ success: false, error: 'Failed to create API' }, 500);
+    }
+  });
+  
+  // Get a single API by ID
+  managementApi.get('/:id', async (c: Context) => {
+      const id = parseInt(c.req.param('id'), 10);
+      if (isNaN(id)) return c.json({ success: false, error: 'Invalid ID' }, 400);
+
+      const api = await db.query.apis.findFirst({ 
+        where: eq(schema.apis.id, id) 
+      });
+
+      if (!api) return c.json({ success: false, error: 'API not found' }, 404);
+      return c.json({ success: true, data: api });
+  });
+
+  // Update an API
+  managementApi.patch('/:id', zValidator('json', updateApiSchema), async (c: Context) => {
+    const id = parseInt(c.req.param('id'), 10);
+    if (isNaN(id)) return c.json({ success: false, error: 'Invalid ID' }, 400);
+    
     const body = c.req.valid('json');
     
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    // Ensure API exists
-    const exists = await withReadQuery(c, 'check api exists', async () => {
-      return await db.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
-      });
-    });
-    
-    if (!exists) {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    // Process headers if provided
-    let headers = undefined;
-    if (body.headers !== undefined) {
-      headers = body.headers ? JSON.stringify(body.headers) : null;
-    }
-    
-    // Update API
-    const [updatedApi] = await withWriteQuery(c, 'update api', async () => {
-      return await db.update(schema.apis)
-        .set({
-          ...(body.name !== undefined && { name: body.name }),
-          ...(body.baseUrl !== undefined && { baseUrl: body.baseUrl }),
-          ...(body.description !== undefined && { description: body.description }),
-          ...(body.authType !== undefined && { authType: body.authType }),
-          ...(body.authToken !== undefined && { authToken: body.authToken }),
-          ...(body.authHeader !== undefined && { authHeader: body.authHeader }),
-          ...(headers !== undefined && { headers }),
-          ...(body.timeout !== undefined && { timeout: body.timeout }),
-          ...(body.retries !== undefined && { retries: body.retries }),
-          ...(body.active !== undefined && { active: body.active }),
-          updatedAt: new Date()
-        })
+    const [updatedApi] = await withTransaction(c, 'update api', async (tx) => {
+      const currentApi = await tx.query.apis.findFirst({ where: eq(schema.apis.id, id) });
+      if (!currentApi) return [];
+
+      const currentConfig = JSON.parse(currentApi.config || '{}');
+      const newConfig = { ...currentConfig, ...(body.config || {}) };
+      
+      const updateData: Partial<typeof schema.apis.$inferInsert> = {};
+      
+      if (body.name !== undefined) updateData.name = body.name;
+      if (body.slug !== undefined) updateData.slug = body.slug;
+      if (body.description !== undefined) updateData.description = body.description;
+      if (body.type !== undefined) updateData.type = body.type;
+      
+      updateData.config = JSON.stringify(newConfig);
+      updateData.configHash = calculateHash(newConfig);
+      updateData.updatedAt = new Date().toISOString();
+      
+      return tx.update(schema.apis)
+        .set(updateData)
         .where(eq(schema.apis.id, id))
         .returning();
     });
-    
+
+    if (!updatedApi) return c.json({ success: false, error: 'API not found' }, 404);
+
     logger.info('Updated API', { id });
-    
-    return c.json({
-      success: true,
-      data: {
-        ...updatedApi,
-        authToken: updatedApi.authToken ? '••••••••' : null
-      }
-    });
-  } catch (error) {
-    logger.error('Failed to update API', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to update API'
-    }, 500);
-  }
-});
+    return c.json({ success: true, data: updatedApi });
+  });
 
-// Delete an API
-app.delete('/:id', async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
-    
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    // Delete API with transaction to handle related data
-    await withTransaction(c, 'delete api', async (tx) => {
-      // First check if API exists
-      const api = await tx.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
+  // Delete an API
+  managementApi.delete('/:id', async (c: Context) => {
+      const id = parseInt(c.req.param('id'), 10);
+      if (isNaN(id)) return c.json({ success: false, error: 'Invalid ID' }, 400);
+
+      const result = await withTransaction(c, 'delete api', async (tx) => {
+          await tx.delete(schema.endpoints).where(eq(schema.endpoints.apiId, id));
+          return tx.delete(schema.apis).where(eq(schema.apis.id, id)).returning();
       });
-      
-      if (!api) {
-        throw new Error('API not found');
+
+      if (result.length === 0) {
+        return c.json({ success: false, error: 'API not found' }, 404);
       }
-      
-      // Delete endpoints related to this API
-      await tx.delete(schema.endpoints)
-        .where(eq(schema.endpoints.apiId, id));
-      
-      // Delete retry schedule entries for this API
-      await tx.delete(schema.retrySchedule)
-        .where(eq(schema.retrySchedule.apiId, id));
-      
-      // Then delete the API
-      await tx.delete(schema.apis)
-        .where(eq(schema.apis.id, id));
-    });
-    
-    logger.info('Deleted API', { id });
-    
-    return c.json({
-      success: true,
-      message: 'API deleted successfully'
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === 'API not found') {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    logger.error('Failed to delete API', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to delete API'
-    }, 500);
-  }
-});
 
-// Test an API endpoint
-app.post('/:id/test', zValidator('json', testApiSchema), async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
-    const body = c.req.valid('json');
-    
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    // Check if API exists
-    const api = await withReadQuery(c, 'check api exists for test', async () => {
-      return await db.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
-      });
-    });
-    
-    if (!api) {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    if (!api.active) {
-      return c.json({
-        success: false,
-        error: 'Cannot test inactive API'
-      }, 400);
-    }
-    
-    // Make the API request
-    const response = await apiRequest(
-      id,
-      body.endpoint,
-      {
-        method: body.method,
-        headers: body.headers,
-        body: body.body,
-        timeout: body.timeout,
-        useCache: false // Don't use cache for test requests
-      }
-    );
-    
-    logger.info('Tested API endpoint', { 
-      id, 
-      endpoint: body.endpoint, 
-      status: response.status,
-      success: response.success
-    });
-    
-    return c.json({
-      success: true,
-      data: response
-    });
-  } catch (error) {
-    logger.error('Failed to test API endpoint', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to test API endpoint'
-    }, 500);
-  }
-});
+      logger.info('Deleted API', { id });
+      return c.json({ success: true, message: 'API deleted successfully.' });
+  });
 
-// List all endpoints for an API
-app.get('/:id/endpoints', async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
-    
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    // Check if API exists
-    const api = await withReadQuery(c, 'check api exists', async () => {
-      return await db.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
-      });
-    });
-    
-    if (!api) {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    // Get endpoints
-    const endpoints = await withReadQuery(c, 'list api endpoints', async () => {
-      return await db.select()
-        .from(schema.endpoints)
-        .where(eq(schema.endpoints.apiId, id))
-        .orderBy(schema.endpoints.path);
-    });
-    
-    return c.json({
-      success: true,
-      data: endpoints
-    });
-  } catch (error) {
-    logger.error('Failed to list API endpoints', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to list API endpoints'
-    }, 500);
-  }
-});
-
-// Create a new endpoint for an API
-app.post('/:id/endpoints', async (c) => {
-  try {
-    const id = Number(c.req.param('id'));
-    const body = await c.req.json();
-    
-    if (isNaN(id)) {
-      return c.json({
-        success: false,
-        error: 'Invalid API ID'
-      }, 400);
-    }
-    
-    // Validate required fields
-    if (!body.path || !body.method) {
-      return c.json({
-        success: false,
-        error: 'Path and method are required'
-      }, 400);
-    }
-    
-    // Ensure API exists
-    const api = await withReadQuery(c, 'check api exists', async () => {
-      return await db.query.apis.findFirst({
-        where: eq(schema.apis.id, id)
-      });
-    });
-    
-    if (!api) {
-      return c.json({
-        success: false,
-        error: 'API not found'
-      }, 404);
-    }
-    
-    // Create endpoint
-    const [endpoint] = await withWriteQuery(c, 'create endpoint', async () => {
-      return await db.insert(schema.endpoints)
-        .values({
-          apiId: id,
-          path: body.path,
-          method: body.method,
-          description: body.description || null,
-          parameters: body.parameters ? JSON.stringify(body.parameters) : null,
-          headers: body.headers ? JSON.stringify(body.headers) : null,
-          body: body.body ? JSON.stringify(body.body) : null,
-          cacheTtl: body.cacheTtl || 300,
-          timeout: body.timeout || api.timeout || 30000,
-          retries: body.retries ?? api.retries ?? 3,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .returning();
-    });
-    
-    logger.info('Created new endpoint', { 
-      apiId: id, 
-      path: endpoint.path, 
-      method: endpoint.method 
-    });
-    
-    return c.json({
-      success: true,
-      data: endpoint
-    }, 201);
-  } catch (error) {
-    logger.error('Failed to create endpoint', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to create endpoint'
-    }, 500);
-  }
-});
-
-// Invalidate cache
-app.post('/cache/invalidate', zValidator('json', invalidateCacheSchema), async (c) => {
-  try {
-    const body = c.req.valid('json');
-    
-    if ((!body.tags || body.tags.length === 0) && (!body.urls || body.urls.length === 0)) {
-      return c.json({
-        success: false,
-        error: 'Either tags or urls must be provided'
-      }, 400);
-    }
-    
-    const invalidated = await invalidateCache({
-      tags: body.tags,
-      urls: body.urls
-    });
-    
-    logger.info('Invalidated cache entries', { 
-      count: invalidated,
-      tags: body.tags,
-      urls: body.urls 
-    });
-    
-    return c.json({
-      success: true,
-      data: {
-        invalidated
-      }
-    });
-  } catch (error) {
-    logger.error('Failed to invalidate cache', { error });
-    return c.json({
-      success: false,
-      error: 'Failed to invalidate cache'
-    }, 500);
-  }
-});
-
-export function setupApiRoutes() {
-  return app;
+  return managementApi;
 }

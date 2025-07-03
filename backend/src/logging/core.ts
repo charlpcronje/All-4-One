@@ -20,7 +20,7 @@ export interface LoggerConfig {
 import { env } from '../env.js';
 
 // Default configuration
-const defaultConfig: LoggerConfig = {
+const defaultConfig: z.infer<typeof LoggerConfigSchema> = {
   minLevel: (env.LOG_LEVEL as LogLevel) || 'info',
   enableConsole: true,
   enableDatabase: true,

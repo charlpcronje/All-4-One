@@ -1,3 +1,5 @@
+// This file is meant to be imported by projects that already have zod installed
+// @ts-ignore - Zod is provided by the parent project
 import { z } from 'zod';
 
 // Base user schema

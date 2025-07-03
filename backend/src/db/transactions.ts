@@ -1,165 +1,127 @@
-import { Context } from 'hono';
-import { db } from './index.ts';
-import { SQLiteTransaction } from 'drizzle-orm/better-sqlite3';
-import { executeDbHooks, DbOperation, DbContext } from './lifecycle.ts';
+// Path: backend/src/db/transactions.ts
+// FINAL CORRECTED VERSION
 
-// Type for transaction callback functions
-export type TransactionCallback<T> = (tx: SQLiteTransaction<typeof db>) => Promise<T> | T;
+import { Context } from 'hono';
+import { db } from './index.js';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import * as schema from './schema.js';
+import { executeDbHooks, DbOperation, DbContext } from './lifecycle.js';
+
+// Get the correct transaction type from Drizzle's inference for use in callbacks.
+type Transaction = BetterSQLite3Database<typeof schema>;
+
+export type TransactionCallback<T> = (tx: Transaction) => Promise<T> | T;
 
 /**
- * Execute a database transaction with lifecycle hooks
- * @param c - Hono context or null
- * @param callback - Function to execute within transaction
- * @returns Result of the transaction
+ * Execute a database transaction with lifecycle hooks.
+ * @param c Hono context or null.
+ * @param _description A descriptive name for the transaction, for logging.
+ * @param callback The function to execute within the transaction.
+ * @returns The result of the transaction callback.
  */
 export async function withTransaction<T>(
   c: Context | null,
+  _description: string, // Keep for compatibility, but can be removed later
   callback: TransactionCallback<T>
 ): Promise<T> {
-  // Create transaction context
+  // 1. Create the initial context for the 'transaction' operation.
   const txContext: DbContext = {
-    table: 'transaction',
-    operation: 'select' as DbOperation, // Using select as the closest operation type
-    query: 'Transaction started',
-    startTime: Date.now()
+    table: 'transaction', // Special name for a transaction block
+    operation: 'execute', // 'execute' is a good fit for a transaction block
+    query: _description || 'Transaction Block', // A descriptive name
+    startTime: Date.now(),
   };
 
-  // Execute beforeExecute hooks
+  // 2. Run 'beforeExecute' hooks.
   const hookContext = await executeDbHooks('beforeExecute', c, txContext);
-  
-  // If there was an error in beforeExecute, we should abort
   if (hookContext.error) {
     throw hookContext.error;
   }
 
   try {
-    // Execute the transaction
-    const result = await db.transaction(async (tx: SQLiteTransaction<typeof db>) => {
-      return await callback(tx);
+    // 3. Execute the actual database transaction.
+    const result = await db.transaction(async (tx) => {
+      // The `tx` object passed to the callback is correctly typed as our Transaction type.
+      return await callback(tx as Transaction);
     });
-    
-    // Update context with result and end time
+
+    // 4. Update context with the result and run 'afterExecute' hooks.
     hookContext.result = result;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks
     await executeDbHooks('afterExecute', c, hookContext);
-    
+
     return result;
+
   } catch (error) {
-    // Update context with error and end time
+    // 5. If an error occurs, update the context and run 'afterExecute' hooks before re-throwing.
     hookContext.error = error as Error;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks even if there was an error
     await executeDbHooks('afterExecute', c, hookContext);
-    
     throw error;
   }
 }
 
 /**
- * Execute a read-only database query with lifecycle hooks
- * @param c - Hono context or null
- * @param table - Table being queried
- * @param callback - Function to execute
- * @returns Result of the query
+ * Wraps a single read query with lifecycle hooks.
  */
 export async function withReadQuery<T>(
   c: Context | null,
-  table: string,
+  _description: string, // Keep for compatibility
   callback: () => Promise<T>
 ): Promise<T> {
-  // Create query context
-  const queryContext = {
-    table,
-    operation: 'select' as const,
-    query: 'Read query',
-    startTime: Date.now()
+  const queryContext: DbContext = {
+    table: _description.split(' ')[1] || 'unknown', // Best guess for table name
+    operation: 'select',
+    query: _description || 'Read Query',
+    startTime: Date.now(),
   };
 
-  // Execute beforeExecute hooks
   const hookContext = await executeDbHooks('beforeExecute', c, queryContext);
-  
-  // If there was an error in beforeExecute, we should abort
-  if (hookContext.error) {
-    throw hookContext.error;
-  }
+  if (hookContext.error) throw hookContext.error;
 
   try {
-    // Execute the query
     const result = await callback();
-    
-    // Update context with result and end time
     hookContext.result = result;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks
     await executeDbHooks('afterExecute', c, hookContext);
-    
     return result;
   } catch (error) {
-    // Update context with error and end time
     hookContext.error = error as Error;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks even if there was an error
     await executeDbHooks('afterExecute', c, hookContext);
-    
     throw error;
   }
 }
 
 /**
- * Execute a write database query with lifecycle hooks
- * @param c - Hono context or null 
- * @param table - Table being modified
- * @param operation - Type of write operation
- * @param callback - Function to execute
- * @returns Result of the query
+ * Wraps a single write query with lifecycle hooks.
  */
 export async function withWriteQuery<T>(
   c: Context | null,
   table: string,
-  operation: 'insert' | 'update' | 'delete',
+  operation: DbOperation,
   callback: () => Promise<T>
 ): Promise<T> {
-  // Create query context
-  const queryContext = {
+  const queryContext: DbContext = {
     table,
     operation,
-    query: `${operation.toUpperCase()} query`,
-    startTime: Date.now()
+    query: `${operation.charAt(0).toUpperCase() + operation.slice(1)} Query`,
+    startTime: Date.now(),
   };
 
-  // Execute beforeExecute hooks
   const hookContext = await executeDbHooks('beforeExecute', c, queryContext);
-  
-  // If there was an error in beforeExecute, we should abort
-  if (hookContext.error) {
-    throw hookContext.error;
-  }
+  if (hookContext.error) throw hookContext.error;
 
   try {
-    // Execute the query
     const result = await callback();
-    
-    // Update context with result and end time
     hookContext.result = result;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks
     await executeDbHooks('afterExecute', c, hookContext);
-    
     return result;
   } catch (error) {
-    // Update context with error and end time
     hookContext.error = error as Error;
     hookContext.endTime = Date.now();
-    
-    // Execute afterExecute hooks even if there was an error
     await executeDbHooks('afterExecute', c, hookContext);
-    
     throw error;
   }
 }
