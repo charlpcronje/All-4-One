@@ -1,30 +1,25 @@
-import { db } from './index.ts';
+import { db } from './index.js';
 import { config } from '../config/index.js';
 import { Context } from 'hono';
 
 // Types - ADDED 'execute' and 'transaction'
-import { z } from 'zod';
+export type DbOperation = 'select' | 'insert' | 'update' | 'delete' | 'execute' | 'transaction';
 
-export const DbOperationSchema = z.enum(['select', 'insert', 'update', 'delete', 'execute', 'transaction']);
-export type DbOperation = z.infer<typeof DbOperationSchema>;
-
-export const DbContextSchema = z.object({
-  table: z.string(),
-  operation: DbOperationSchema,
-  query: z.unknown(),
-  params: z.array(z.unknown()).optional(),
-  result: z.unknown().optional(),
-  startTime: z.number().optional(),
-  endTime: z.number().optional(),
-  error: z.instanceof(Error).optional(),
-});
-
-export type DbContext = z.infer<typeof DbContextSchema>;
+export interface DbContext {
+  table: string;
+  operation: DbOperation;
+  query: unknown;
+  params?: unknown[];
+  result?: unknown;
+  startTime?: number;
+  endTime?: number;
+  error?: Error;
+}
 
 // Type for DB lifecycle hook handlers
 export type DbHookHandler = (
   c: Context | null,
-  dbContext: z.infer<typeof DbContextSchema>
+  dbContext: DbContext
 ) => Promise<void> | void;
 
 // Registry for DB lifecycle hooks
