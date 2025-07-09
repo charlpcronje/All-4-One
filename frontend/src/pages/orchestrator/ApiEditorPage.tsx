@@ -167,7 +167,7 @@ export default function ApiEditorPage() {
                 <div className="flex space-x-2">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button className="bg-background border border-input hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 flex items-center gap-1">
+                            <Button className="bg-background border border-input hover:bg-accent text-primary hover:text-accent-foreground h-9 rounded-md px-3 flex items-center gap-1">
                                 <History className="h-4 w-4" />
                                 <span>History</span>
                                 <ChevronDown className="h-4 w-4 ml-1" />

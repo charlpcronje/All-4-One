@@ -183,7 +183,7 @@ export default function ApiListPage() {
               Create API
             </Button>
             <Button 
-              className="border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground gap-1"
+              className="border border-input text-primary bg-background shadow-sm hover:bg-accent hover:text-accent-foreground gap-1"
               onClick={handleImportApi}
             >
               <Download className="h-4 w-4" />
