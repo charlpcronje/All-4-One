@@ -35,8 +35,9 @@ import {
 } from "@/components/ui/dialog";
 
 import { VisualProcessEditor } from "@/components/orchestrator/VisualProcessEditor";
+import { PropertiesPanel } from "@/components/orchestrator/PropertiesPanel";
 import { DraggableNode } from "@/components/orchestrator/EditorToolbar";
-import { ProcessDefinition } from "../../../../shared/schemas/process.schema";
+import { ProcessDefinition, ProcessStep } from "../../../../shared/schemas/process.schema";
 
 const sampleProcessDefinition: ProcessDefinition = {
     id: "proc_1",
@@ -96,7 +97,10 @@ export default function ApiEditorPage() {
     const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
     const [processDefinition, setProcessDefinition] = useState<ProcessDefinition>(sampleProcessDefinition);
     const [availableNodes, setAvailableNodes] = useState<DraggableNode[]>([]);
-    const [setIsLoadingNodes] = useState(true);
+    const [isLoadingNodes, setIsLoadingNodes] = useState(true);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+    const selectedNode = selectedNodeId ? processDefinition.nodes[selectedNodeId] : null;
 
     useEffect(() => {
         const fetchAvailableNodes = async () => {
@@ -131,6 +135,32 @@ export default function ApiEditorPage() {
         setEditorContent(JSON.stringify(newDefinition, null, 2));
     };
 
+    const handleNodeDataChange = (nodeId: string, newNodeData: Partial<ProcessStep>) => {
+        const newDefinition = {
+            ...processDefinition,
+            nodes: {
+                ...processDefinition.nodes,
+                [nodeId]: {
+                    ...processDefinition.nodes[nodeId],
+                    ...newNodeData,
+                }
+            }
+        };
+        handleDefinitionChange(newDefinition);
+    };
+
+    const handleNodePositionChange = (nodeId: string, newPosition: { x: number, y: number }) => {
+        // A little performance optimization: don't trigger a full state update if position hasn't changed much
+        const currentNode = processDefinition.nodes[nodeId];
+        if (currentNode && currentNode.position) {
+            const dx = Math.abs(currentNode.position.x - newPosition.x);
+            const dy = Math.abs(currentNode.position.y - newPosition.y);
+            if (dx < 1 && dy < 1) return;
+        }
+
+        handleNodeDataChange(nodeId, { position: newPosition });
+    };
+
     const handleSave = async () => {
         if (!isValid) return;
         setIsSaving(true);
@@ -149,14 +179,13 @@ export default function ApiEditorPage() {
         setShowVersionDialog(false);
     };
     
-    // In a real app, this would use a proper validation library and provide more detailed errors.
     const handleValidation = (isValid: boolean) => {
         setIsValid(isValid);
     };
     
     return (
-        <div className="container mx-auto py-6 space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="container mx-auto py-6 space-y-6 h-full flex flex-col">
+            <div className="flex justify-between items-center flex-shrink-0">
                 <div>
                     <h1 className="text-3xl font-bold">{processDefinition.name || 'Untitled API'}</h1>
                     <p className="text-muted-foreground">
@@ -195,23 +224,32 @@ export default function ApiEditorPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="visual" className="w-full">
-                <TabsList>
+            <Tabs defaultValue="visual" className="w-full flex-grow flex flex-col">
+                <TabsList className="flex-shrink-0">
                     <TabsTrigger value="visual" className="flex items-center gap-1"><Code className="h-4 w-4" /><span>Visual Editor</span></TabsTrigger>
                     <TabsTrigger value="json" className="flex items-center gap-1"><FileJson className="h-4 w-4" /><span>JSON Editor</span></TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="visual" className="mt-4">
-                    <VisualProcessEditor
-                        definition={processDefinition}
-                        onDefinitionChange={handleDefinitionChange}
-                        availableNodes={availableNodes}
-                    />
+                <TabsContent value="visual" className="mt-4 flex-grow">
+                   <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 h-full">
+                        <VisualProcessEditor
+                            definition={processDefinition}
+                            onDefinitionChange={handleDefinitionChange}
+                            availableNodes={availableNodes}
+                            selectedNodeId={selectedNodeId}
+                            onNodeSelect={setSelectedNodeId}
+                            onNodePositionChange={handleNodePositionChange}
+                        />
+                        <PropertiesPanel 
+                            node={selectedNode}
+                            onNodeDataChange={handleNodeDataChange}
+                        />
+                   </div>
                 </TabsContent>
 
-                <TabsContent value="json" className="mt-4">
-                    <Card>
-                        <CardContent className="pt-6">
+                <TabsContent value="json" className="mt-4 flex-grow">
+                    <Card className="h-full">
+                        <CardContent className="pt-6 h-full">
                             <JsonEditor
                                 initialValue={editorContent}
                                 onChange={(value) => {
@@ -221,7 +259,7 @@ export default function ApiEditorPage() {
                                     } catch (e) { /* ignore parse errors while typing */ }
                                 }}
                                 onValidate={handleValidation}
-                                height="600px"
+                                height="100%"
                             />
                         </CardContent>
                     </Card>

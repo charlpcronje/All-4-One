@@ -1,6 +1,6 @@
 // Path: frontend/src/components/orchestrator/VisualProcessEditor.tsx
 
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -13,40 +13,48 @@ import ReactFlow, {
   Edge,
   OnConnect,
   ReactFlowInstance,
+  NodeMouseHandler,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 
-import { ProcessDefinition } from '../../../../shared/schemas/process.schema';
+import { ProcessDefinition, ProcessStep } from '../../../../shared/schemas/process.schema';
 import { EditorToolbar, DraggableNode } from './EditorToolbar';
+import ProcessStepNode from './nodes/ProcessStepNode';
 
 interface VisualProcessEditorProps {
   definition: ProcessDefinition;
   onDefinitionChange: (newDefinition: ProcessDefinition) => void;
   availableNodes: DraggableNode[];
+  selectedNodeId: string | null;
+  onNodeSelect: (nodeId: string | null) => void;
+  onNodePositionChange: (nodeId: string, newPosition: { x: number, y: number }) => void;
 }
 
-const definitionToFlow = (definition: ProcessDefinition): { nodes: Node[], edges: Edge[] } => {
-  // This function will need to be improved to handle node positions later.
-  // For now, it just maps the basic structure.
+const definitionToFlow = (definition: ProcessDefinition, selectedNodeId: string | null): { nodes: Node<ProcessStep>[], edges: Edge[] } => {
   const nodes = Object.values(definition.nodes).map((step, index) => {
-    const typedStep = step as import('../../../../shared/schemas/process.schema').ProcessStep;
+    const isSelected = step.id === selectedNodeId;
     return {
-      id: typedStep.id,
-    type: 'default',
-    position: { x: (index % 5) * 200, y: Math.floor(index / 5) * 150 },
-    data: { label: `${typedStep.label} (${typedStep.type})` },
-  };
+      id: step.id,
+      type: 'processStep', // Use our custom node type
+      position: step.position || { x: (index % 4) * 280, y: Math.floor(index / 4) * 200 },
+      data: step,
+      style: {
+        borderWidth: isSelected ? 2 : 1,
+        borderColor: isSelected ? '#10b981' : 'transparent',
+        boxShadow: isSelected ? '0 0 10px #10b981' : 'none',
+        borderRadius: '0.5rem',
+      },
+    };
   });
 
   const edges: Edge[] = [];
   for (const step of Object.values(definition.nodes)) {
-    const typedStep = step as import('../../../../shared/schemas/process.schema').ProcessStep;
-    if (typedStep.connections.onSuccess) {
-      edges.push({ id: `e-${typedStep.id}-success`, source: typedStep.id, target: typedStep.connections.onSuccess, label: 'onSuccess', type: 'smoothstep' });
+    if (step.connections.onSuccess) {
+      edges.push({ id: `e-${step.id}-success`, source: step.id, sourceHandle: 'onSuccess', target: step.connections.onSuccess, label: 'Success', type: 'smoothstep' });
     }
-    if (typedStep.connections.onFailure) {
-      edges.push({ id: `e-${typedStep.id}-failure`, source: typedStep.id, target: typedStep.connections.onFailure, label: 'onFailure', type: 'smoothstep', style: { stroke: '#f44336' } });
+    if (step.connections.onFailure) {
+      edges.push({ id: `e-${step.id}-failure`, source: step.id, sourceHandle: 'onFailure', target: step.connections.onFailure, label: 'Failure', type: 'smoothstep', markerEnd: { type: 'arrowclosed', color: '#f44336' }, style: { stroke: '#f44336' } });
     }
   }
   return { nodes, edges };
@@ -56,33 +64,37 @@ export function VisualProcessEditor({
   definition,
   onDefinitionChange,
   availableNodes,
+  selectedNodeId,
+  onNodeSelect,
+  onNodePositionChange,
 }: VisualProcessEditorProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
-  const { nodes: initialNodes, edges: initialEdges } = definitionToFlow(definition);
+  const nodeTypes = useMemo(() => ({ processStep: ProcessStepNode }), []);
+
+  const { nodes: initialNodes, edges: initialEdges } = definitionToFlow(definition, selectedNodeId);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Sync React Flow state back to the parent component's definition state.
   useEffect(() => {
-    // This is a simplified sync. A real implementation would be more robust.
-    const newDefinition: ProcessDefinition = { ...definition, nodes: {} };
-    nodes.forEach(node => {
-        newDefinition.nodes[node.id] = {
-            id: node.id,
-            type: 'core:http_request', // Placeholder
-            label: node.data.label,
-            config: {},
-            connections: { onSuccess: null, onFailure: null }
-        };
-    });
-    // This part is complex and will be improved: syncing connections to edges.
-    onDefinitionChange(newDefinition);
-  }, [nodes, edges, onDefinitionChange, definition]);
+    const { nodes: newNodes, edges: newEdges } = definitionToFlow(definition, selectedNodeId);
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, [definition, selectedNodeId, setNodes, setEdges]);
 
 
-  const onConnect: OnConnect = useCallback((params) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
+  const onConnect: OnConnect = useCallback((params) => {
+    setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds));
+    const { source, sourceHandle, target } = params;
+    const newDefinition = { ...definition };
+    if(source && target) {
+        const sourceNode = newDefinition.nodes[source];
+        if(sourceHandle === 'onSuccess') sourceNode.connections.onSuccess = target;
+        if(sourceHandle === 'onFailure') sourceNode.connections.onFailure = target;
+        onDefinitionChange(newDefinition);
+    }
+  }, [setEdges, definition, onDefinitionChange]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -104,29 +116,52 @@ export function VisualProcessEditor({
       });
 
       const newNodeId = `step_${uuidv4().substring(0, 8)}`;
-      const newNode: Node = {
+      
+      const newDefinition = { ...definition };
+      newDefinition.nodes[newNodeId] = {
         id: newNodeId,
-        type: 'default',
-        position,
-        data: { label: name },
+        type: type,
+        label: name,
+        config: {},
+        connections: { onSuccess: null, onFailure: null },
+        position: position,
+        components: {}
       };
-
-      setNodes((nds) => nds.concat(newNode));
+      onDefinitionChange(newDefinition);
+      onNodeSelect(newNodeId);
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, definition, onDefinitionChange, onNodeSelect]
   );
 
+  const handleNodeClick: NodeMouseHandler = useCallback((_event, node) => {
+    onNodeSelect(node.id);
+  }, [onNodeSelect]);
+
+  const handlePaneClick = useCallback(() => {
+    onNodeSelect(null);
+  }, [onNodeSelect]);
+
+  const handleNodeDragStop: NodeMouseHandler = useCallback((_event, node) => {
+    if (node.position) {
+        onNodePositionChange(node.id, node.position);
+    }
+  }, [onNodePositionChange]);
+
   return (
-    <div style={{ height: '600px' }} className="relative border rounded-lg bg-background" ref={reactFlowWrapper}>
+    <div className="h-full w-full relative border rounded-lg bg-background" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onInit={setReactFlowInstance}
         onDrop={onDrop}
         onDragOver={onDragOver}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
+        onNodeDragStop={handleNodeDragStop}
         fitView
         proOptions={{ hideAttribution: true }}
       >

@@ -1,0 +1,125 @@
+Okay I had a look and it works very well. There are a few things that we need to add. We need to add the lifecycle hooks and I also need to be able to add evens to the failure or sucess nodes. Maybe you did add more things that I can not see. I saw that there is text at the top left that says "Loading availble Step". That might be the Toolbar nog completing it's loading and not showing. I get the following errors in the console:
+
+
+f47ac10b-58cc-4372-a567-0e02b2c3d479:18 Unchecked runtime.lastError: The message port closed before a response was received.
+client:495 [vite] connecting...
+client:618 [vite] connected.
+chunk-SXLANTMV.js?v=f6c5c713:28429 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+react-router-dom.js?v=f6c5c713:4403 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+warnOnce @ react-router-dom.js?v=f6c5c713:4403
+logDeprecation @ react-router-dom.js?v=f6c5c713:4406
+logV6DeprecationWarnings @ react-router-dom.js?v=f6c5c713:4409
+(anonymous) @ react-router-dom.js?v=f6c5c713:5279
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+commitPassiveMountOnFiber @ chunk-SXLANTMV.js?v=f6c5c713:25034
+commitPassiveMountEffects_complete @ chunk-SXLANTMV.js?v=f6c5c713:25007
+commitPassiveMountEffects_begin @ chunk-SXLANTMV.js?v=f6c5c713:24997
+commitPassiveMountEffects @ chunk-SXLANTMV.js?v=f6c5c713:24987
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26368
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25661
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
+react-router-dom.js?v=f6c5c713:4403 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+warnOnce @ react-router-dom.js?v=f6c5c713:4403
+logDeprecation @ react-router-dom.js?v=f6c5c713:4406
+logV6DeprecationWarnings @ react-router-dom.js?v=f6c5c713:4412
+(anonymous) @ react-router-dom.js?v=f6c5c713:5279
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+commitPassiveMountOnFiber @ chunk-SXLANTMV.js?v=f6c5c713:25034
+commitPassiveMountEffects_complete @ chunk-SXLANTMV.js?v=f6c5c713:25007
+commitPassiveMountEffects_begin @ chunk-SXLANTMV.js?v=f6c5c713:24997
+commitPassiveMountEffects @ chunk-SXLANTMV.js?v=f6c5c713:24987
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26368
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25661
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
+ApiEditorPage.tsx:109  GET http://localhost:4444/api/process-steps 404 (File not found)
+fetchAvailableNodes @ ApiEditorPage.tsx:109
+(anonymous) @ ApiEditorPage.tsx:130
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+commitPassiveMountOnFiber @ chunk-SXLANTMV.js?v=f6c5c713:25034
+commitPassiveMountEffects_complete @ chunk-SXLANTMV.js?v=f6c5c713:25007
+commitPassiveMountEffects_begin @ chunk-SXLANTMV.js?v=f6c5c713:24997
+commitPassiveMountEffects @ chunk-SXLANTMV.js?v=f6c5c713:24987
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26368
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25683
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
+ApiEditorPage.tsx:124 Error fetching process steps: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+fetchAvailableNodes @ ApiEditorPage.tsx:124
+await in fetchAvailableNodes
+(anonymous) @ ApiEditorPage.tsx:130
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+commitPassiveMountOnFiber @ chunk-SXLANTMV.js?v=f6c5c713:25034
+commitPassiveMountEffects_complete @ chunk-SXLANTMV.js?v=f6c5c713:25007
+commitPassiveMountEffects_begin @ chunk-SXLANTMV.js?v=f6c5c713:24997
+commitPassiveMountEffects @ chunk-SXLANTMV.js?v=f6c5c713:24987
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26368
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25683
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
+ApiEditorPage.tsx:109  GET http://localhost:4444/api/process-steps 404 (File not found)
+fetchAvailableNodes @ ApiEditorPage.tsx:109
+(anonymous) @ ApiEditorPage.tsx:130
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+invokePassiveEffectMountInDEV @ chunk-SXLANTMV.js?v=f6c5c713:25202
+invokeEffectsInDev @ chunk-SXLANTMV.js?v=f6c5c713:26579
+commitDoubleInvokeEffectsInDEV @ chunk-SXLANTMV.js?v=f6c5c713:26564
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26381
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25683
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
+ApiEditorPage.tsx:124 Error fetching process steps: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+fetchAvailableNodes @ ApiEditorPage.tsx:124
+await in fetchAvailableNodes
+(anonymous) @ ApiEditorPage.tsx:130
+commitHookEffectListMount @ chunk-SXLANTMV.js?v=f6c5c713:23793
+invokePassiveEffectMountInDEV @ chunk-SXLANTMV.js?v=f6c5c713:25202
+invokeEffectsInDev @ chunk-SXLANTMV.js?v=f6c5c713:26579
+commitDoubleInvokeEffectsInDEV @ chunk-SXLANTMV.js?v=f6c5c713:26564
+flushPassiveEffectsImpl @ chunk-SXLANTMV.js?v=f6c5c713:26381
+flushPassiveEffects @ chunk-SXLANTMV.js?v=f6c5c713:26325
+performSyncWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25746
+flushSyncCallbacks @ chunk-SXLANTMV.js?v=f6c5c713:15997
+commitRootImpl @ chunk-SXLANTMV.js?v=f6c5c713:26310
+commitRoot @ chunk-SXLANTMV.js?v=f6c5c713:26155
+finishConcurrentRender @ chunk-SXLANTMV.js?v=f6c5c713:25683
+performConcurrentWorkOnRoot @ chunk-SXLANTMV.js?v=f6c5c713:25596
+workLoop @ chunk-SXLANTMV.js?v=f6c5c713:462
+flushWork @ chunk-SXLANTMV.js?v=f6c5c713:441
+performWorkUntilDeadline @ chunk-SXLANTMV.js?v=f6c5c713:649
